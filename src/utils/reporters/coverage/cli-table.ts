@@ -2,9 +2,22 @@ import { CoverageReporter } from "./coverage-reporter";
 import chalk from "chalk";
 import Table from "cli-table3";
 import { CoverageResult } from "../../../types/coverage-result";
+import Config from "../../../config";
 
 class CliTableCoverageReporter implements CoverageReporter {
-  report(diffCoverage: CoverageResult, { details = false } = {}) {
+  report(diffCoverage: CoverageResult) {
+    const colors = Config.getInstance().getFirst(
+      ["reporter.coverage.cli-table.colors", "reporter.coverage.colors"],
+      false
+    );
+    const details = Config.getInstance().getFirst(
+      ["reporter.coverage.cli-table.details", "reporter.coverage.details"],
+      false
+    );
+    const qualityGate = Config.getInstance().getFirst(
+      ["reporter.coverage.qualityGate"],
+      80
+    );
     const summaryTable = new Table({
       head: ["Type", "Total", "Covered", "Percent"],
       colWidths: [20, 20, 20, 20],
@@ -32,6 +45,18 @@ class CliTableCoverageReporter implements CoverageReporter {
       ]
     );
     console.log(summaryTable.toString());
+
+    if (qualityGate) {
+      const qualityGateFailed =
+        diffCoverage.lines.percent < qualityGate ||
+        diffCoverage.functions.percent < qualityGate ||
+        diffCoverage.branches.percent < qualityGate;
+      console.log(
+        `Coverage Quality Gate: ${
+          qualityGateFailed ? chalk.red("Failed") : chalk.green("Passed")
+        } ${diffCoverage.lines.percent.toFixed(2)}% (baseline: ${qualityGate}%)`
+      );
+    }
 
     if (!details) {
       return;

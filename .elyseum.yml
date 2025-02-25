@@ -1,0 +1,5 @@
+reporter:
+  coverage:
+    cli-table:
+      color: true
+      diff: true

@@ -1,3 +1,3 @@
 export interface CoverageReporter {
-  report(coverage: any, {}): void;
+  report(coverage: any): void;
 }

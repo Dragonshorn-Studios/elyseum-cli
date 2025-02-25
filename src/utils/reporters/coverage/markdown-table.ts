@@ -1,8 +1,17 @@
 import { CoverageReporter } from "./coverage-reporter";
 import { CoverageResult } from "../../../types/coverage-result";
+import Config from "../../../config";
 
 class MarkdownTableCoverageReporter implements CoverageReporter {
-  report(diffCoverage: CoverageResult, { details = false } = {}) {
+  report(diffCoverage: CoverageResult) {
+    const details = Config.getInstance().getFirst(
+      ["reporter.coverage.cli-table.details", "reporter.coverage.details"],
+      false
+    );
+    const qualityGate = Config.getInstance().getFirst(
+      ["reporter.coverage.qualityGate"],
+      80
+    );
     let markdown = `| Type      | Total | Covered | Percent |\n`;
     markdown += `|-----------|-------|---------|---------|\n`;
     markdown += `| Lines     | ${diffCoverage.lines.total} | ${

@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "ts-node src/index.ts",
+    "prepare": "npm run build",
     "build": "rollup -c",
     "watch": "rollup -c -w",
     "dev": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/index.ts"
@@ -21,6 +22,7 @@
     "cli-table3": "^0.6.5",
     "diff": "^7.0.0",
     "isomorphic-git": "^1.29.0",
+    "js-yaml": "^4.1.0",
     "lcov-parse": "^1.0.0",
     "minimatch": "^10.0.1",
     "ora": "^8.2.0",
@@ -35,6 +37,7 @@
     "@rollup/plugin-typescript": "^8.3.0",
     "@types/argparse": "^2.0.17",
     "@types/diff": "^7.0.1",
+    "@types/js-yaml": "^4.0.9",
     "@types/lcov-parse": "^1.0.2",
     "rollup": "^2.56.3",
     "rollup-plugin-preserve-shebang": "^1.0.0"

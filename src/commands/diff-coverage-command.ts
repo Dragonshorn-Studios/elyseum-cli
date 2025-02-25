@@ -63,7 +63,7 @@ export class DiffCoverageCommand {
       let coverage = await this.getCoverageReport("coverage/lcov.info");
       let diffCoverage = await this.calculateDiffCoverage(files, coverage);
       for (let reporter of getCoverageReportersFromArgs(args)) {
-        reporter.report(diffCoverage, { details: true });
+        reporter.report(diffCoverage);
       }
     } catch (error) {
       console.error(error);
