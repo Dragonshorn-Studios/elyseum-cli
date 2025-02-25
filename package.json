@@ -6,8 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "ts-node src/index.ts",
-    "build": "tsc",
-    "watch": "tsc -w",
+    "build": "rollup -c",
+    "watch": "rollup -c -w",
     "dev": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/index.ts"
   },
   "bin": {
@@ -25,12 +25,18 @@
     "minimatch": "^10.0.1",
     "ora": "^8.2.0",
     "ts-node": "^10.9.2",
+    "tslib": "^2.8.1",
     "typescript": "^5.7.3",
     "winston": "^3.17.0"
   },
   "devDependencies": {
+    "@rollup/plugin-commonjs": "^21.0.1",
+    "@rollup/plugin-node-resolve": "^13.0.6",
+    "@rollup/plugin-typescript": "^8.3.0",
     "@types/argparse": "^2.0.17",
     "@types/diff": "^7.0.1",
-    "@types/lcov-parse": "^1.0.2"
+    "@types/lcov-parse": "^1.0.2",
+    "rollup": "^2.56.3",
+    "rollup-plugin-preserve-shebang": "^1.0.0"
   }
 }
