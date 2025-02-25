@@ -5,16 +5,9 @@ import parse from "lcov-parse";
 import { minimatch } from "minimatch";
 import { getCoverageExcludes } from "../utils/config-readers/coverage-config-reader";
 import { getCoverageReportersFromArgs } from "../utils/reporters/reporters";
-import {
-  CoverageResult,
-  CoverageDetail,
-  CoverageFile,
-} from "../types/coverage-result";
-
 export class DiffCoverageCommand {
   constructor() {}
-
-  public async run(args: any): Promise<void> {
+  async run(args) {
     const gitExists = await fs
       .access(".git")
       .then(() => true)
@@ -22,7 +15,6 @@ export class DiffCoverageCommand {
     if (!gitExists) {
       return;
     }
-
     const coverageExcludes = getCoverageExcludes(process.cwd());
     const coverageIncludes = [
       "**/*.ts",
@@ -32,7 +24,6 @@ export class DiffCoverageCommand {
       "**/*.mjs",
       "**/*.vue",
     ];
-
     try {
       args.head =
         args.head ||
@@ -49,7 +40,7 @@ export class DiffCoverageCommand {
         args.head,
         args.base
       );
-      files = files.filter((file: any) => {
+      files = files.filter((file) => {
         return (
           !coverageExcludes.some((exclude) => {
             return minimatch(file.path.replace(/^\//, ""), exclude);
@@ -59,7 +50,6 @@ export class DiffCoverageCommand {
           })
         );
       });
-
       let coverage = await this.getCoverageReport("coverage/lcov.info");
       let diffCoverage = await this.calculateDiffCoverage(files, coverage);
       for (let reporter of getCoverageReportersFromArgs(args)) {
@@ -69,12 +59,8 @@ export class DiffCoverageCommand {
       console.error(error);
     }
   }
-
-  private async calculateDiffCoverage(
-    files: any,
-    coverage: any
-  ): Promise<CoverageResult> {
-    const diffCoverageResult: CoverageResult = {
+  async calculateDiffCoverage(files, coverage) {
+    const diffCoverageResult = {
       lines: {
         total: 0,
         covered: 0,
@@ -90,11 +76,11 @@ export class DiffCoverageCommand {
         covered: 0,
         percent: 0,
       },
-      files: [],
+      files: Array(),
     };
     for (let file of files) {
       let normalizedPath = file.path.replace(/^\//, "");
-      const coverageData = coverage.find((c: any) => c.file === normalizedPath);
+      const coverageData = coverage.find((c) => c.file === normalizedPath);
       if (!coverageData) {
         diffCoverageResult.lines.total += file.lines;
         diffCoverageResult.files.push({
@@ -117,7 +103,7 @@ export class DiffCoverageCommand {
         });
         continue;
       }
-      let changedLineNumbers = new Set<number>();
+      let changedLineNumbers = new Set();
       let changedLineCount = 0;
       for (let hunk of file.diff.hunks) {
         for (
@@ -134,10 +120,8 @@ export class DiffCoverageCommand {
       let totalFunctions = 0;
       let coveredBranches = 0;
       let totalBranches = 0;
-
       let functions = [];
       let branches = [];
-
       for (let line of coverageData.lines.details) {
         if (changedLineNumbers.has(line.line) && line.hit > 0) {
           coveredLines++;
@@ -198,11 +182,9 @@ export class DiffCoverageCommand {
       (diffCoverageResult.branches.covered /
         diffCoverageResult.branches.total) *
       100;
-
     return diffCoverageResult;
   }
-
-  private async getCoverageReport(file: string) {
+  async getCoverageReport(file) {
     const lcov = await fs.readFile(file, "utf-8");
     return new Promise((resolve, reject) => {
       parse(lcov, (err, data) => {
@@ -213,8 +195,7 @@ export class DiffCoverageCommand {
       });
     });
   }
-
-  private async getChangedFiles(dir: string, head: string, base: string) {
+  async getChangedFiles(dir, head, base) {
     return git.walk({
       fs,
       dir,
@@ -233,11 +214,9 @@ export class DiffCoverageCommand {
         ) {
           return;
         }
-
         // generate ids
         const Aoid = await HEAD.oid();
         const Boid = BASE ? await BASE.oid() : undefined;
-
         // determine modification type
         let type = "equal";
         let process = false;
@@ -252,17 +231,14 @@ export class DiffCoverageCommand {
           type = "add";
           process = true;
         }
-
         if (!process) {
           return;
         }
-
         const headContent = await HEAD.content();
         let headContentStr = "";
         if (headContent) {
           headContentStr = new TextDecoder().decode(headContent);
         }
-
         let diff = null;
         if (type === "modify" && BASE) {
           const baseContent = await BASE.content();

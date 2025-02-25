@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { ArgumentParser } from "argparse";
-import { DiffCoverageCommand } from "./commands/diff-coverage-command.js";
+import { DiffCoverageCommand } from "./commands/diff-coverage-command";
 
 const parser = new ArgumentParser({
   description: "Elyseum CLI",
@@ -16,6 +16,12 @@ const subparsers = parser.add_subparsers({
 
 const diffCoverageParser = subparsers.add_parser("diff-coverage", {
   help: "Calculate coverage for changed files",
+});
+diffCoverageParser.add_argument("--reporter.coverage", {
+  help: "Coverage reporter",
+  choices: ["cli-table", "markdown-table"],
+  default: "cli-table",
+  dest: "reporter_coverage",
 });
 
 const args = parser.parse_args();
