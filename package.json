@@ -1,0 +1,29 @@
+{
+  "name": "elyseum-cli",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "build": "tsc",
+    "watch": "tsc -w",
+    "dev": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/index.ts"
+  },
+  "bin": {
+    "elyseum": "./dist/index.js"
+  },
+  "dependencies": {
+    "@isomorphic-git/lightning-fs": "^4.6.0",
+    "@types/node": "^22.13.5",
+    "argparse": "^2.0.1",
+    "isomorphic-git": "^1.29.0",
+    "ora": "^8.2.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "@types/argparse": "^2.0.17"
+  }
+}
