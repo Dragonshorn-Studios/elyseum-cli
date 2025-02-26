@@ -57,9 +57,13 @@ parser.add_argument("--reporter.coverage.quality-gate", {
 
 for (let reporter of Object.keys(COVERAGE_REPORTERS)) {
   const reporterConfig = COVERAGE_REPORTERS[reporter].config || {};
+  // add group for specific reporter so it looks better in help
+  const reporterGroup = parser.add_argument_group({
+    title: `Coverage reporter: ${reporter}`,
+  });
   for (let key of Object.keys(reporterConfig)) {
-    parser.add_argument(`--reporter.coverage.${reporter}.${key}`, {
-      help: reporterConfig[key],
+    reporterGroup.add_argument(`--reporter.coverage.${reporter}.${key}`, {
+      ...reporterConfig[key],
       dest: `reporter_coverage_${reporter}_${key}`,
     });
   }

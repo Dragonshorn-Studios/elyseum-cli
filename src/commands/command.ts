@@ -1,10 +1,11 @@
 import fs from "fs";
 import { CoverageCommand } from "./coverage-command";
 import { DiffCoverageCommand } from "./diff-coverage-command";
+import { CustomConfig } from "../config";
 
 export interface Command {
   run(args: any): Promise<void>;
-  config?: any;
+  config?: CustomConfig;
   name: string;
 }
 
@@ -38,10 +39,13 @@ export class CommandFactory {
   addCommandArgs(yargs: any): void {
     for (const command of this.getAvailableCommands()) {
       const commandInstance = this.commands[command];
+      const commandGroup = yargs.add_argument_group({
+        title: `Command: ${command}`,
+      });
       if (commandInstance.config) {
         for (const key of Object.keys(commandInstance.config)) {
-          yargs.add_argument(`--${command}.${key}`, {
-            help: commandInstance.config[key],
+          commandGroup.add_argument(`--${command}.${key}`, {
+            ...commandInstance.config[key],
             dest: `${command}_${key}`,
           });
         }

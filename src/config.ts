@@ -1,6 +1,19 @@
 import fs from "fs";
 import yaml from "js-yaml";
 
+export interface ConfigElement {
+  help: string;
+  type: string;
+  default: any;
+  options?: any[];
+  action?: string;
+  required?: boolean;
+}
+
+export interface CustomConfig {
+  [key: string]: ConfigElement;
+}
+
 class Config {
   private static instance: Config;
   private config: any;

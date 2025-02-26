@@ -1,13 +1,25 @@
 import { CoverageReporter } from "./coverage-reporter.js";
 import { CoverageResult } from "../../../types/coverage-result.js";
 import fs from "fs";
-import Config from "../../../config.js";
+import Config, { ConfigElement, CustomConfig } from "../../../config.js";
 import { config } from "process";
 class GithubPRCommentCoverageReporter implements CoverageReporter {
-  config?: any = {
-    "comment-file-path": "coverage/github.pr.coverage.md",
-    "comment-name": "coverage/github.pr.coverage.md",
-    qualityGate: 80,
+  config?: CustomConfig = {
+    "comment-file-path": {
+      help: "The file path to write the coverage report to",
+      type: "string",
+      default: "coverage/github.pr.coverage.md",
+    } as ConfigElement,
+    "comment-name": {
+      help: "The name of the comment",
+      type: "string",
+      default: "coverage/github.pr.coverage.md",
+    } as ConfigElement,
+    "quality-gate": {
+      help: "The quality gate for coverage",
+      type: "int",
+      default: 80,
+    } as ConfigElement,
   };
 
   coverage_low = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16"><path d="M2.344 2.343h-.001a8 8 0 0 1 11.314 11.314A8.002 8.002 0 0 1 .234 10.089a8 8 0 0 1 2.11-7.746Zm1.06 10.253a6.5 6.5 0 1 0 9.108-9.275 6.5 6.5 0 0 0-9.108 9.275ZM6.03 4.97 8 6.94l1.97-1.97a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l1.97 1.97a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-1.97 1.97a.749.749 0 0 1-1.275-.326.749.749 0 0 1 .215-.734L6.94 8 4.97 6.03a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018Z"></path></svg>`;

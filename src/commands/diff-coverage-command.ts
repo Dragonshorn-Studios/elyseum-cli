@@ -11,13 +11,23 @@ import {
   CoverageFile,
 } from "../types/coverage-result";
 import { Command, CommandMap } from "./command";
-import Config from "../config";
+import Config, { CustomConfig } from "../config";
 
 export class DiffCoverageCommand implements Command {
   name: string = "diff-coverage";
-  config?: any = {
-    base: "HEAD",
-    head: "origin/main",
+  config?: CustomConfig = {
+    base: {
+      help: "The base branch/sha to compare against",
+      type: "string",
+      required: false,
+      default: process.env.GITHUB_BASE_REF || "origin/main",
+    },
+    head: {
+      help: "The head branch/sha to compare against",
+      type: "string",
+      required: false,
+      default: process.env.GITHUB_SHA || "HEAD",
+    },
   };
   constructor(commands: CommandMap) {
     commands[this.name] = this;
@@ -46,15 +56,12 @@ export class DiffCoverageCommand implements Command {
       let headSha = await git.resolveRef({
         fs,
         dir: process.cwd(),
-        ref: Config.get(this.name, "head") || process.env.GITHUB_SHA || "HEAD",
+        ref: Config.get(this.name, "head"),
       });
       let baseSha = await git.resolveRef({
         fs,
         dir: process.cwd(),
-        ref:
-          Config.get(this.name, "base") ||
-          process.env.GITHUB_BASE_REF ||
-          "origin/main",
+        ref: Config.get(this.name, "base"),
       });
       let files = await this.getChangedFiles(process.cwd(), headSha, baseSha);
       files = files.filter((file: any) => {
