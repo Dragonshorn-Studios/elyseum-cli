@@ -66,9 +66,9 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
     let coverageQualityText = ``;
     if (qualityGate) {
       if (qualityGateFailed) {
-        coverageQualityText += `> [!CAUTION]\n### Coverage Quality Gate Failed ${qualityGateFailed}`;
+        coverageQualityText += `> [!CAUTION]\n> ### Coverage Quality Gate Failed ${this.quality_gate_failed}`;
       } else {
-        coverageQualityText += `> [!TIP]\n### Coverage Quality Gate Passed ${qualityGateFailed}`;
+        coverageQualityText += `> [!TIP]\n> ### Coverage Quality Gate Passed ${this.quality_gate_passed}\n`;
       }
       coverageQualityText += `> ${this.getIcon(
         diffCoverage.lines.percent
