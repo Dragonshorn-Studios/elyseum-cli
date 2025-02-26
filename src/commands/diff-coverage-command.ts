@@ -21,7 +21,9 @@ export class DiffCoverageCommand implements Command {
       help: "The base branch/sha to compare against",
       type: "str",
       required: false,
-      default: process.env.GITHUB_BASE_REF || "origin/main",
+      default: process.env.GITHUB_BASE_REF
+        ? `origin/${process.env.GITHUB_BASE_REF}`
+        : "origin/main",
     },
     head: {
       help: "The head branch/sha to compare against",
