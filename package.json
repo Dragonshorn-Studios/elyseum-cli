@@ -1,19 +1,30 @@
 {
-  "name": "elyseum-cli",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "@elyseum/elyseum-cli",
+  "version": "0.1.0",
+  "description": "A CLI tool for coverage reporting",
+  "main": "src/index.js",
   "type": "module",
   "scripts": {
-    "start": "ts-node src/index.ts",
+    "start": "node src/index.js",
     "prepare": "npm run build",
     "build": "rollup -c",
     "watch": "rollup -c -w",
     "dev": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/index.ts"
   },
   "bin": {
-    "elyseum-cli": "./dist/index.js"
+    "elyseum-cli": "src/index.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dragonshorn-Studios/elyseum-cli"
+  },
+  "keywords": [
+    "cli",
+    "coverage",
+    "reporting"
+  ],
+  "author": "Dragonshorn Studios",
+  "license": "MIT",
   "dependencies": {
     "@isomorphic-git/lightning-fs": "^4.6.0",
     "@types/node": "^22.13.5",
