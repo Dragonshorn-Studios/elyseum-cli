@@ -60,18 +60,25 @@ export class DiffCoverageCommand implements Command {
     ];
 
     try {
+      Logger.debug("Running diff-coverage command");
+      Logger.debug(
+        `head branch/sha: ${Config.get(
+          this.name,
+          "head"
+        )}, base branch/sha: ${Config.get(this.name, "base")}`
+      );
       let changedFiles = Config.get(this.name, "changed-files", "");
       let headSha = await git.resolveRef({
         fs,
         dir: process.cwd(),
         ref: Config.get(this.name, "head"),
       });
+      Logger.debug(`Head SHA: ${headSha}`);
       let baseSha = await git.resolveRef({
         fs,
         dir: process.cwd(),
         ref: Config.get(this.name, "base"),
       });
-      Logger.debug(`Head SHA: ${headSha}`);
       Logger.debug(`Base SHA: ${baseSha}`);
       Logger.debug(`Changed files: ${changedFiles}`);
       let files = [];
