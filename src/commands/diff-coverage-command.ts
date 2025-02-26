@@ -12,21 +12,28 @@ import {
 } from "../types/coverage-result";
 import { Command, CommandMap } from "./command";
 import Config, { CustomConfig } from "../config";
+import { Logger } from "../utils/logger";
 
 export class DiffCoverageCommand implements Command {
   name: string = "diff-coverage";
   config?: CustomConfig = {
     base: {
       help: "The base branch/sha to compare against",
-      type: "string",
+      type: "str",
       required: false,
       default: process.env.GITHUB_BASE_REF || "origin/main",
     },
     head: {
       help: "The head branch/sha to compare against",
-      type: "string",
+      type: "str",
       required: false,
       default: process.env.GITHUB_SHA || "HEAD",
+    },
+    "changed-files": {
+      help: "Comma separated list of changed files",
+      type: "str",
+      required: false,
+      default: "",
     },
   };
   constructor(commands: CommandMap) {
@@ -53,6 +60,7 @@ export class DiffCoverageCommand implements Command {
     ];
 
     try {
+      let changedFiles = Config.get(this.name, "changed-files", "");
       let headSha = await git.resolveRef({
         fs,
         dir: process.cwd(),
@@ -63,7 +71,22 @@ export class DiffCoverageCommand implements Command {
         dir: process.cwd(),
         ref: Config.get(this.name, "base"),
       });
-      let files = await this.getChangedFiles(process.cwd(), headSha, baseSha);
+      Logger.debug(`Head SHA: ${headSha}`);
+      Logger.debug(`Base SHA: ${baseSha}`);
+      let files = [];
+      if (!changedFiles) {
+        files = await this.getChangedFiles(process.cwd(), headSha, baseSha);
+      } else {
+        files = changedFiles.split(",").map((file: string) => {
+          return {
+            path: file,
+          };
+        });
+      }
+      Logger.debug(
+        `Changed files: ${files.map((file: any) => file.path).join(", ")}`
+      );
+
       files = files.filter((file: any) => {
         return (
           !coverageExcludes.some((exclude) => {

@@ -27,7 +27,6 @@
   "author": "Dragonshorn Studios",
   "license": "MIT",
   "dependencies": {
-    "@isomorphic-git/lightning-fs": "^4.6.0",
     "@types/node": "^22.13.5",
     "argparse": "^2.0.1",
     "chalk": "^5.4.1",
@@ -44,6 +43,7 @@
     "winston": "^3.17.0"
   },
   "devDependencies": {
+    "@rollup/plugin-json": "6.1.0",
     "@rollup/plugin-commonjs": "^21.0.1",
     "@rollup/plugin-node-resolve": "^13.0.6",
     "@rollup/plugin-typescript": "^8.3.0",

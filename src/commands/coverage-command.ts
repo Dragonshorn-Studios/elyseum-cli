@@ -36,6 +36,8 @@ export class CoverageCommand implements Command {
 
   private async calculateCoverage(coverage: any): Promise<CoverageResult> {
     const coverageResult: CoverageResult = {
+      headSha: "",
+      baseSha: "",
       lines: {
         total: 0,
         covered: 0,

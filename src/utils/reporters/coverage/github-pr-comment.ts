@@ -7,12 +7,12 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
   config?: CustomConfig = {
     "comment-file-path": {
       help: "The file path to write the coverage report to",
-      type: "string",
+      type: "str",
       default: "coverage/github.pr.coverage.md",
     } as ConfigElement,
     "comment-name": {
       help: "The name of the comment",
-      type: "string",
+      type: "str",
       default: "coverage/github.pr.coverage.md",
     } as ConfigElement,
     "quality-gate": {

@@ -2,6 +2,7 @@ import fs from "fs";
 import { CoverageCommand } from "./coverage-command";
 import { DiffCoverageCommand } from "./diff-coverage-command";
 import { CustomConfig } from "../config";
+import { Logger } from "../utils/logger"; // Import the logger
 
 export interface Command {
   run(args: any): Promise<void>;
@@ -15,6 +16,7 @@ export interface CommandMap {
 
 export class CommandFactory {
   commands: CommandMap = {};
+
   constructor() {
     new CoverageCommand(this.commands);
     new DiffCoverageCommand(this.commands);
@@ -22,13 +24,16 @@ export class CommandFactory {
 
   getCommand(args: any): Command | undefined {
     try {
+      Logger.debug(`Fetching command: ${args.command}`); // Add debug log
       return this.commands[args.command];
-    } catch (error) {
+    } catch (error: any) {
+      Logger.error(`Error fetching command: ${error.message}`); // Add error log
       return undefined;
     }
   }
 
   getAvailableCommands() {
+    Logger.debug("Fetching available commands"); // Add debug log
     let availableCommands = [];
     for (const command of Object.keys(this.commands)) {
       availableCommands.push(command);
@@ -37,6 +42,7 @@ export class CommandFactory {
   }
 
   addCommandArgs(yargs: any): void {
+    Logger.debug("Adding command arguments"); // Add debug log
     for (const command of this.getAvailableCommands()) {
       const commandInstance = this.commands[command];
       const commandGroup = yargs.add_argument_group({
