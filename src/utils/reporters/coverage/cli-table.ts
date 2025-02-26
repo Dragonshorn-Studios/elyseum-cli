@@ -15,7 +15,7 @@ class CliTableCoverageReporter implements CoverageReporter {
       false
     );
     const qualityGate = Config.getInstance().getFirst(
-      ["reporter.coverage.qualityGate"],
+      ["reporter.coverage.quality-gate"],
       80
     );
     const summaryTable = new Table({

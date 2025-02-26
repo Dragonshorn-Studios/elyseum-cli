@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 
 import { ArgumentParser } from "argparse";
-import { DiffCoverageCommand } from "./commands/diff-coverage-command";
-import { CoverageCommand } from "./commands/coverage-command";
 import { COVERAGE_REPORTERS } from "./utils/reporters/reporters";
 import Config from "./config";
+import { CommandFactory } from "./commands/command";
 
+const commandFactory = new CommandFactory();
 const parser = new ArgumentParser({
   description: "Elyseum CLI",
 });
 
 parser.add_argument("command", {
   help: "Command to run",
-  choices: ["diff-coverage", "coverage", "help"],
+  choices: commandFactory.getAvailableCommands(),
   default: "help",
 });
 
@@ -52,22 +52,28 @@ parser.add_argument("--reporter.coverage.details", {
 parser.add_argument("--reporter.coverage.quality-gate", {
   help: "Coverage quality gate",
   type: "int",
-  dest: "reporter_coverage_qualityGate",
+  dest: "reporter_coverage_quality-gate",
 });
+
+for (let reporter of Object.keys(COVERAGE_REPORTERS)) {
+  const reporterConfig = COVERAGE_REPORTERS[reporter].config || {};
+  for (let key of Object.keys(reporterConfig)) {
+    parser.add_argument(`--reporter.coverage.${reporter}.${key}`, {
+      help: reporterConfig[key],
+      dest: `reporter_coverage_${reporter}_${key}`,
+    });
+  }
+}
+
+commandFactory.addCommandArgs(parser);
 
 const args = parser.parse_args();
 
 const config = Config.getInstance(args);
 
-switch (args.command) {
-  case "diff-coverage":
-    await new DiffCoverageCommand().run(args);
-    break;
-  case "coverage":
-    await new CoverageCommand().run(args);
-    break;
-  case "help":
-  default:
-    parser.print_help();
-    break;
+const selectedCommand = commandFactory.getCommand(args);
+if (selectedCommand !== undefined) {
+  selectedCommand.run(args);
+} else {
+  parser.print_help();
 }

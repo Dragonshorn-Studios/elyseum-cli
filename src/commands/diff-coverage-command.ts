@@ -10,9 +10,18 @@ import {
   CoverageDetail,
   CoverageFile,
 } from "../types/coverage-result";
+import { Command, CommandMap } from "./command";
+import Config from "../config";
 
-export class DiffCoverageCommand {
-  constructor() {}
+export class DiffCoverageCommand implements Command {
+  name: string = "diff-coverage";
+  config?: any = {
+    base: "HEAD",
+    head: "origin/main",
+  };
+  constructor(commands: CommandMap) {
+    commands[this.name] = this;
+  }
 
   public async run(args: any): Promise<void> {
     const gitExists = await fs
@@ -37,12 +46,15 @@ export class DiffCoverageCommand {
       let headSha = await git.resolveRef({
         fs,
         dir: process.cwd(),
-        ref: args.head || process.env.GITHUB_SHA || "HEAD",
+        ref: Config.get(this.name, "head") || process.env.GITHUB_SHA || "HEAD",
       });
       let baseSha = await git.resolveRef({
         fs,
         dir: process.cwd(),
-        ref: args.base || process.env.GITHUB_BASE_REF || "origin/main",
+        ref:
+          Config.get(this.name, "base") ||
+          process.env.GITHUB_BASE_REF ||
+          "origin/main",
       });
       let files = await this.getChangedFiles(process.cwd(), headSha, baseSha);
       files = files.filter((file: any) => {

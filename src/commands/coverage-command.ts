@@ -6,9 +6,13 @@ import { minimatch } from "minimatch";
 import { getCoverageExcludes } from "../utils/config-readers/coverage-config-reader";
 import { getCoverageReportersFromArgs } from "../utils/reporters/reporters";
 import { CoverageDetail, CoverageResult } from "../types/coverage-result";
+import { Command, CommandMap } from "./command";
 
-export class CoverageCommand {
-  constructor() {}
+export class CoverageCommand implements Command {
+  name: string = "coverage";
+  constructor(commands: CommandMap) {
+    commands[this.name] = this;
+  }
 
   public async run(args: any): Promise<void> {
     const gitExists = await fs

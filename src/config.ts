@@ -63,6 +63,20 @@ class Config {
     }
     return defaultValue;
   }
+
+  public static get(
+    context: string,
+    keys: string[] | string,
+    defaultValue: any = null
+  ): any {
+    if (typeof keys === "string") {
+      return Config.getInstance().get(`${context}.${keys}`, defaultValue);
+    }
+    return Config.getInstance().getFirst(
+      keys.map((key) => `${context}.${key}`),
+      defaultValue
+    );
+  }
 }
 
 export default Config;

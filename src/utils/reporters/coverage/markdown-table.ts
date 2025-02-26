@@ -9,7 +9,7 @@ class MarkdownTableCoverageReporter implements CoverageReporter {
       false
     );
     const qualityGate = Config.getInstance().getFirst(
-      ["reporter.coverage.qualityGate"],
+      ["reporter.coverage.quality-gate"],
       80
     );
     let markdown = `| Type      | Total | Covered | Percent |\n`;
