@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { Logger } from "../logger";
 
 interface CoverageConfig {
   exclude: string[];
@@ -28,13 +29,11 @@ function readCoverageConfig(filePath: string): CoverageConfig | null {
 }
 
 export function getCoverageExcludes(configDir: string): string[] {
-  const tools = ["vitest", "jest", "mocha"];
+  const tools = ["vitest", "jest", "mocha", "vite"];
   let excludes: string[] = [];
 
   for (const tool of tools) {
     const configPaths = [
-      path.join(configDir, `vite.config.js`),
-      path.join(configDir, `vite.config.mjs`),
       path.join(configDir, `${tool}.config.js`),
       path.join(configDir, `${tool}.config.mjs`),
     ];
@@ -42,6 +41,8 @@ export function getCoverageExcludes(configDir: string): string[] {
     for (const configPath of configPaths) {
       const config = readCoverageConfig(configPath);
       if (config) {
+        Logger.debug(`Found coverage config in ${configPath}`);
+        Logger.debug(`Excludes: ${config.exclude.join(", ")}`);
         return config.exclude;
       }
     }

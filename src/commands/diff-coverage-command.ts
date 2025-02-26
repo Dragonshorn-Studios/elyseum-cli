@@ -73,6 +73,7 @@ export class DiffCoverageCommand implements Command {
       });
       Logger.debug(`Head SHA: ${headSha}`);
       Logger.debug(`Base SHA: ${baseSha}`);
+      Logger.debug(`Changed files: ${changedFiles}`);
       let files = [];
       if (!changedFiles) {
         files = await this.getChangedFiles(process.cwd(), headSha, baseSha);
@@ -83,9 +84,6 @@ export class DiffCoverageCommand implements Command {
           };
         });
       }
-      Logger.debug(
-        `Changed files: ${files.map((file: any) => file.path).join(", ")}`
-      );
 
       files = files.filter((file: any) => {
         return (
@@ -97,6 +95,8 @@ export class DiffCoverageCommand implements Command {
           })
         );
       });
+      Logger.debug(`Files: ${files.map((file: any) => file.path).join(", ")}`);
+      // normalize file paths
 
       let coverage = await this.getCoverageReport("coverage/lcov.info");
       let diffCoverage = await this.calculateDiffCoverage(files, coverage, {
@@ -248,6 +248,7 @@ export class DiffCoverageCommand implements Command {
 
   private async getCoverageReport(file: string) {
     const lcov = await fs.readFile(file, "utf-8");
+    Logger.debug(`Coverage report loaded from ${file}`);
     return new Promise((resolve, reject) => {
       parse(lcov, (err, data) => {
         if (err) {
