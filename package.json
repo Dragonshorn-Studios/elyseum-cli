@@ -1,5 +1,5 @@
 {
-  "name": "@dragonshorn/elyseum-cli",
+  "name": "@dragonshorn-studios/elyseum-cli",
   "version": "0.1.0",
   "description": "A CLI tool for coverage reporting",
   "main": "dist/index.js",

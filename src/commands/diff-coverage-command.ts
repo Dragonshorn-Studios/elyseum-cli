@@ -34,21 +34,17 @@ export class DiffCoverageCommand {
     ];
 
     try {
-      args.head =
-        args.head ||
-        (await git.resolveRef({ fs, dir: process.cwd(), ref: "HEAD" }));
-      args.base =
-        args.base ||
-        (await git.resolveRef({
-          fs,
-          dir: process.cwd(),
-          ref: "origin/master",
-        }));
-      let files = await this.getChangedFiles(
-        process.cwd(),
-        args.head,
-        args.base
-      );
+      let headSha = await git.resolveRef({
+        fs,
+        dir: process.cwd(),
+        ref: args.head || process.env.GITHUB_SHA || "HEAD",
+      });
+      let baseSha = await git.resolveRef({
+        fs,
+        dir: process.cwd(),
+        ref: args.base || process.env.GITHUB_BASE_REF || "origin/main",
+      });
+      let files = await this.getChangedFiles(process.cwd(), headSha, baseSha);
       files = files.filter((file: any) => {
         return (
           !coverageExcludes.some((exclude) => {
@@ -61,7 +57,10 @@ export class DiffCoverageCommand {
       });
 
       let coverage = await this.getCoverageReport("coverage/lcov.info");
-      let diffCoverage = await this.calculateDiffCoverage(files, coverage);
+      let diffCoverage = await this.calculateDiffCoverage(files, coverage, {
+        headSha,
+        baseSha,
+      });
       for (let reporter of getCoverageReportersFromArgs(args)) {
         reporter.report(diffCoverage);
       }
@@ -72,9 +71,12 @@ export class DiffCoverageCommand {
 
   private async calculateDiffCoverage(
     files: any,
-    coverage: any
+    coverage: any,
+    { headSha, baseSha }: any
   ): Promise<CoverageResult> {
     const diffCoverageResult: CoverageResult = {
+      headSha,
+      baseSha,
       lines: {
         total: 0,
         covered: 0,

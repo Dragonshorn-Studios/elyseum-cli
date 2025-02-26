@@ -13,6 +13,8 @@ export interface CoverageFile {
 }
 
 export interface CoverageResult {
+  headSha: string;
+  baseSha: string;
   lines: CoverageDetail;
   functions: CoverageDetail;
   branches: CoverageDetail;
