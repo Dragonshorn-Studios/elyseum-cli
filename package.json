@@ -10,7 +10,7 @@
     "build": "rollup -c",
     "watch": "rollup -c -w",
     "dev": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/index.ts",
-    "release": "npm version patch -m 'Release version %s' && git push --follow-tags"
+    "release": "npm version patch -m 'chore: :bookmark: release %s' && git push --follow-tags"
   },
   "bin": {
     "elyseum-cli": "dist/index.js"
