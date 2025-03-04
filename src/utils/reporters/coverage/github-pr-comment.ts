@@ -50,76 +50,82 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
 
     let markdown = `## ${commentName}\n\n`;
 
-    // lines, functions, branches average percentage must be greater than or equal to qualityGate
-    const qualityGateFailed =
-      diffCoverage.lines.percent < qualityGate ||
-      diffCoverage.functions.percent < qualityGate ||
-      diffCoverage.branches.percent < qualityGate;
+    if (diffCoverage.lines.total) {
+      // lines, functions, branches average percentage must be greater than or equal to qualityGate
+      const qualityGateFailed =
+        diffCoverage.lines.percent < qualityGate ||
+        diffCoverage.functions.percent < qualityGate ||
+        diffCoverage.branches.percent < qualityGate;
 
-    let coverageQualityText = ``;
-    if (qualityGate) {
-      if (qualityGateFailed) {
-        coverageQualityText += `> [!CAUTION]\n> ### Coverage Quality Gate Failed 🟥\n`;
-      } else {
-        coverageQualityText += `> [!TIP]\n> ### Coverage Quality Gate Passed 🟩\n`;
+      let coverageQualityText = ``;
+      if (qualityGate) {
+        if (qualityGateFailed) {
+          coverageQualityText += `> [!CAUTION]\n> ### Coverage Quality Gate Failed 🟥\n`;
+        } else {
+          coverageQualityText += `> [!TIP]\n> ### Coverage Quality Gate Passed 🟩\n`;
+        }
+        coverageQualityText += `> ${this.getIcon(
+          diffCoverage.lines.percent
+        )} Lines: ${diffCoverage.lines.percent.toFixed(
+          2
+        )}% (baseline: ${qualityGate}%)\n`;
+        coverageQualityText += `> ${this.getIcon(
+          diffCoverage.functions.percent
+        )} Functions: ${diffCoverage.functions.percent.toFixed(
+          2
+        )}% (baseline: ${qualityGate}%)\n`;
+        coverageQualityText += `> ${this.getIcon(
+          diffCoverage.branches.percent
+        )} Branches: ${diffCoverage.branches.percent.toFixed(
+          2
+        )}% (baseline: ${qualityGate}%)\n\n`;
       }
-      coverageQualityText += `> ${this.getIcon(
+
+      let summary = `| Type      | Total | Covered | Percent |\n`;
+      summary += `|-----------|-------|---------|---------|\n`;
+      summary += `| Lines     | ${diffCoverage.lines.total} | ${
+        diffCoverage.lines.covered
+      } | ${this.getIcon(
         diffCoverage.lines.percent
-      )} Lines: ${diffCoverage.lines.percent.toFixed(
-        2
-      )}% (baseline: ${qualityGate}%)\n`;
-      coverageQualityText += `> ${this.getIcon(
+      )} ${diffCoverage.lines.percent.toFixed(2)}% |\n`;
+      summary += `| Functions | ${diffCoverage.functions.total} | ${
+        diffCoverage.functions.covered
+      } | ${this.getIcon(
         diffCoverage.functions.percent
-      )} Functions: ${diffCoverage.functions.percent.toFixed(
-        2
-      )}% (baseline: ${qualityGate}%)\n`;
-      coverageQualityText += `> ${this.getIcon(
+      )} ${diffCoverage.functions.percent.toFixed(2)}% |\n`;
+      summary += `| Branches  | ${diffCoverage.branches.total} | ${
+        diffCoverage.branches.covered
+      } | ${this.getIcon(
         diffCoverage.branches.percent
-      )} Branches: ${diffCoverage.branches.percent.toFixed(
-        2
-      )}% (baseline: ${qualityGate}%)\n\n`;
+      )} ${diffCoverage.branches.percent.toFixed(2)}% |\n`;
+
+      markdown += `### Coverage Summary\n\n${summary}`;
+
+      markdown += coverageQualityText;
+
+      let detailsTable = `\n<details>\n<summary>Coverage Details</summary>\n\n`;
+      detailsTable += `| File | Lines (%) | Functions (%) | Branches (%) |\n`;
+      detailsTable += `|------|-----------|---------------|--------------|\n`;
+
+      for (const file of diffCoverage.files) {
+        detailsTable += `| ${file.file} | ${file.lines.covered}/${
+          file.lines.total
+        } (${file.lines.percent.toFixed(2)}%) | ${file.functions.covered}/${
+          file.functions.total
+        } (${this.percentOrNA(file.functions.percent)}) | ${
+          file.branches.covered
+        }/${file.branches.total} (${this.percentOrNA(
+          file.branches.percent
+        )}) |\n`;
+      }
+
+      detailsTable += `\n</details>\n`;
+      markdown += detailsTable;
+    } else {
+      markdown += `> [!CAUTION]\n> ### No coverage information found\n`;
+      fs.writeFileSync(reportPath, markdown);
+      return;
     }
-
-    let summary = `| Type      | Total | Covered | Percent |\n`;
-    summary += `|-----------|-------|---------|---------|\n`;
-    summary += `| Lines     | ${diffCoverage.lines.total} | ${
-      diffCoverage.lines.covered
-    } | ${this.getIcon(
-      diffCoverage.lines.percent
-    )} ${diffCoverage.lines.percent.toFixed(2)}% |\n`;
-    summary += `| Functions | ${diffCoverage.functions.total} | ${
-      diffCoverage.functions.covered
-    } | ${this.getIcon(
-      diffCoverage.functions.percent
-    )} ${diffCoverage.functions.percent.toFixed(2)}% |\n`;
-    summary += `| Branches  | ${diffCoverage.branches.total} | ${
-      diffCoverage.branches.covered
-    } | ${this.getIcon(
-      diffCoverage.branches.percent
-    )} ${diffCoverage.branches.percent.toFixed(2)}% |\n`;
-
-    markdown += `### Coverage Summary\n\n${summary}`;
-
-    markdown += coverageQualityText;
-
-    let detailsTable = `\n<details>\n<summary>Coverage Details</summary>\n\n`;
-    detailsTable += `| File | Lines (%) | Functions (%) | Branches (%) |\n`;
-    detailsTable += `|------|-----------|---------------|--------------|\n`;
-
-    for (const file of diffCoverage.files) {
-      detailsTable += `| ${file.file} | ${file.lines.covered}/${
-        file.lines.total
-      } (${file.lines.percent.toFixed(2)}%) | ${file.functions.covered}/${
-        file.functions.total
-      } (${this.percentOrNA(file.functions.percent)}) | ${
-        file.branches.covered
-      }/${file.branches.total} (${this.percentOrNA(
-        file.branches.percent
-      )}) |\n`;
-    }
-
-    detailsTable += `\n</details>\n`;
-    markdown += detailsTable;
 
     let reportInfo = `Report for commit ${diffCoverage.headSha}`;
     if (diffCoverage.baseSha) {
