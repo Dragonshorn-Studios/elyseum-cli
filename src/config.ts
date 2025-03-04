@@ -1,6 +1,8 @@
 import fs from "fs";
 import yaml from "js-yaml";
-
+import Ajv from "ajv";
+import { Logger } from "./utils/logger";
+import schema from "./schema.json";
 export interface ConfigElement {
   help: string;
   type: string;
@@ -21,7 +23,47 @@ class Config {
   private constructor(args: any = {}) {
     const configPath = ".elyseum.yml";
     if (fs.existsSync(configPath)) {
-      this.config = yaml.load(fs.readFileSync(configPath, "utf8"));
+      Logger.debug(`Loading config from ${configPath}`);
+      const yamlConfig: any = yaml.load(fs.readFileSync(configPath, "utf8"));
+
+      const ajv = new Ajv();
+      const validate = ajv.compile(schema);
+      try {
+        let x: any = validate(yamlConfig);
+        Logger.debug(`Config validation: ${JSON.stringify(x)}`);
+      } catch (e) {
+        Logger.error(`Invalid config: ${e}`);
+        process.exit(1);
+      }
+
+      this.config = yamlConfig["config"] || {};
+
+      const env =
+        args["environment"] || yamlConfig["default-environment"] || "auto";
+      delete args["environment"];
+      let envConfig = {};
+      if (yamlConfig["environments"]) {
+        if (env === "auto") {
+          if (process.env.GITHUB_ACTIONS) {
+            envConfig =
+              yamlConfig["environments"]["github"] ||
+              yamlConfig["environments"]["ci"] ||
+              {};
+          } else if (process.env.GITLAB_CI) {
+            envConfig =
+              yamlConfig["environments"]["github"] ||
+              yamlConfig["environments"]["ci"] ||
+              {};
+          } else {
+            envConfig = yamlConfig["environments"]["local"] || {};
+          }
+        } else {
+          envConfig = yamlConfig["environments"][env] || {};
+        }
+      }
+      this.config = { ...this.config, ...envConfig };
+
+      Logger.debug(`Config: ${JSON.stringify(this.config)}`);
     } else {
       this.config = {};
     }
@@ -43,8 +85,20 @@ class Config {
       if (lastKey === undefined) {
         continue;
       }
-      config[lastKey] = args[key];
+      // merge the config if args key is not default arg value
+      if (config[lastKey] !== undefined) {
+        if (this.isSet(key)) {
+          config[lastKey] = args[key];
+        }
+      } else {
+        config[lastKey] = args[key];
+      }
     }
+    Logger.debug(`Final config: ${JSON.stringify(this.config)}`);
+  }
+
+  private isSet(argName: string) {
+    return process.argv.includes(`--${argName}`);
   }
 
   public static getInstance(args: any = {}): Config {
@@ -89,6 +143,24 @@ class Config {
       keys.map((key) => `${context}.${key}`),
       defaultValue
     );
+  }
+
+  public static getConfig(): any {
+    return Config.getInstance().config;
+  }
+
+  public static getEnvironments(): string[] {
+    const environments = ["auto"];
+    const configPath = ".elyseum.yml";
+    if (fs.existsSync(configPath)) {
+      const yamlConfig: any = yaml.load(fs.readFileSync(configPath, "utf8"));
+      if (yamlConfig["environments"]) {
+        for (const env of Object.keys(yamlConfig["environments"])) {
+          environments.push(env);
+        }
+      }
+    }
+    return environments;
   }
 }
 

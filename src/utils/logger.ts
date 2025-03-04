@@ -11,7 +11,7 @@ export class Logger {
     console.warn(`[WARN] ${message}`);
   }
 
-  static error(message: string): void {
-    console.error(`[ERROR] ${message}`);
+  static error(message: string, ...args: any[]): void {
+    console.error(`[ERROR] ${message}`, args);
   }
 }

@@ -2,6 +2,7 @@ import fs from "fs";
 import { CoverageCommand } from "./coverage-command";
 import { DiffCoverageCommand } from "./diff-coverage-command";
 import { CustomConfig } from "../config";
+import { PrintConfigCommand } from "./print-config-command";
 import { Logger } from "../utils/logger"; // Import the logger
 
 export interface Command {
@@ -20,6 +21,7 @@ export class CommandFactory {
   constructor() {
     new CoverageCommand(this.commands);
     new DiffCoverageCommand(this.commands);
+    new PrintConfigCommand(this.commands);
   }
 
   getCommand(args: any): Command | undefined {

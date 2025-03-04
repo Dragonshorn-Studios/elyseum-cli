@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "default-environment": {
+      "type": "string",
+      "description": "Default environment to use when no environment is specified"
+    },
+    "config": {
+      "type": "object",
+      "description": "Default configuration for all environments"
+    },
+    "environments": {
+      "type": "object",
+      "description": "Configurations for different environments",
+      "properties": {
+        "github": {
+          "type": "object",
+          "description": "Configuration for GitHub Actions environment"
+        },
+        "gitlab": {
+          "type": "object",
+          "description": "Configuration for GitLab CI environment"
+        },
+        "local": {
+          "type": "object",
+          "description": "Configuration for local environment"
+        },
+        "ci": {
+          "type": "object",
+          "description": "Configuration for general CI environment"
+        }
+      }
+    }
+  },
+  "additionalProperties": true,
+  "default": {
+    "default-environment": "",
+    "config": {},
+    "environments": {
+      "github": {},
+      "gitlab": {},
+      "local": {},
+      "ci": {}
+    }
+  }
+}

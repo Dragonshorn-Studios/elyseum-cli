@@ -13,6 +13,9 @@ import {
 import { Command, CommandMap } from "./command";
 import Config, { CustomConfig } from "../config";
 import { Logger } from "../utils/logger";
+import { Octokit, App } from "octokit";
+import { exec } from "child_process";
+import { promisify } from "util";
 
 export class DiffCoverageCommand implements Command {
   name: string = "diff-coverage";
@@ -24,6 +27,12 @@ export class DiffCoverageCommand implements Command {
       default: process.env.GITHUB_BASE_REF
         ? `origin/${process.env.GITHUB_BASE_REF}`
         : "origin/main",
+    },
+    dynamic: {
+      help: "The head branch/sha to compare against",
+      type: "str",
+      required: false,
+      default: "",
     },
     head: {
       help: "The head branch/sha to compare against",
@@ -75,13 +84,65 @@ export class DiffCoverageCommand implements Command {
         dir: process.cwd(),
         ref: Config.get(this.name, "head"),
       });
-      Logger.debug(`Head SHA: ${headSha}`);
-      let baseSha = await git.resolveRef({
-        fs,
-        dir: process.cwd(),
-        ref: Config.get(this.name, "base"),
-      });
-      Logger.debug(`Base SHA: ${baseSha}`);
+      let baseSha = null;
+      if (Config.get(this.name, "dynamic") === "gh") {
+        let token = process.env.GITHUB_TOKEN;
+        if (!token) {
+          const execPromise = promisify(exec);
+          const { stdout, stderr } = await execPromise("gh auth token");
+          if (stderr) {
+            throw new Error(stderr);
+          }
+          token = stdout.trim();
+          if (!token) {
+            throw new Error("GITHUB_TOKEN is not set");
+          }
+        }
+        let prNumber = process.env.GITHUB_PR_NUMBER;
+        const octokit = new Octokit({ auth: token });
+        const branchName = await git.currentBranch({
+          fs,
+          dir: process.cwd(),
+        });
+        const repoUrl = await git.listRemotes({
+          fs,
+          dir: process.cwd(),
+        });
+        const [owner, repo] = repoUrl[0].url
+          .replace(/\.git$/, "")
+          .split("/")
+          .slice(-2);
+        Logger.debug(`Owner: ${owner}, Repo: ${repo}`);
+        if (!prNumber) {
+          const prs = await octokit.rest.search.issuesAndPullRequests({
+            q: `head:${branchName} is:pr is:open`,
+          });
+          if (prs.data.total_count === 0) {
+            Logger.info(
+              `No open PR found for branch ${branchName}, using default base branch`
+            );
+          } else {
+            prNumber = prs.data.items[0].number;
+          }
+        }
+        if (prNumber) {
+          const pr = await octokit.rest.pulls.get({
+            owner,
+            repo,
+            pull_number: prNumber,
+          });
+          baseSha = pr.data.base.sha;
+          Logger.debug(`Got base SHA from PR: ${baseSha}`);
+        }
+      }
+      if (!baseSha) {
+        baseSha = await git.resolveRef({
+          fs,
+          dir: process.cwd(),
+          ref: Config.get(this.name, "base"),
+        });
+        Logger.debug(`Got base SHA from config: ${baseSha}`);
+      }
       Logger.debug(`Changed files: ${changedFiles}`);
       let files = [];
       if (!changedFiles) {

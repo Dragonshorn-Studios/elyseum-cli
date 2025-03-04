@@ -4,6 +4,7 @@ import { ArgumentParser } from "argparse";
 import { COVERAGE_REPORTERS } from "./utils/reporters/reporters";
 import Config from "./config";
 import { CommandFactory } from "./commands/command";
+import { Logger } from "./utils/logger";
 
 const commandFactory = new CommandFactory();
 const parser = new ArgumentParser({
@@ -53,6 +54,12 @@ parser.add_argument("--reporter.coverage.quality-gate", {
   help: "Coverage quality gate",
   type: "int",
   dest: "reporter_coverage_quality-gate",
+});
+
+parser.add_argument("--environment", "-e", {
+  help: "Environment for the config. Defaults to auto if not set",
+  dest: "environment",
+  choices: Config.getEnvironments(),
 });
 
 for (let reporter of Object.keys(COVERAGE_REPORTERS)) {
