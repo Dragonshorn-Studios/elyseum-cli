@@ -230,18 +230,12 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
         : qualityGateWarning
         ? "neutral"
         : "success",
-      output: {
-        title: "Coverage Quality Gate",
-        summary: `Coverage Quality Gate ${
-          qualityGateFailed
-            ? "Failed"
-            : qualityGateWarning
-            ? "Warning"
-            : "Passed"
-        }`,
-        text: markdown,
-        annotations: annotations,
-      },
+      title: "Coverage Quality Gate",
+      summary: `Coverage Quality Gate ${
+        qualityGateFailed ? "Failed" : qualityGateWarning ? "Warning" : "Passed"
+      }`,
+      text: markdown,
+      annotations: annotations,
     };
     fs.writeFileSync(annotationFilePath, JSON.stringify(checkData));
   }
@@ -283,11 +277,9 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
         name: "Quality Gate",
         head_sha: process.env.GITHUB_SHA,
         status: "failure",
-        output: {
-          title: "Coverage Quality Gate",
-          summary: message,
-          text: JSON.stringify(details),
-        },
+        title: "Coverage Quality Gate",
+        summary: message,
+        text: JSON.stringify(details),
       };
       fs.writeFileSync(annotationFilePath, JSON.stringify(checkData));
     }
