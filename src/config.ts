@@ -121,11 +121,15 @@ class Config {
     return config || defaultValue;
   }
 
-  public getFirst(keys: string[], defaultValue: any = null): any {
+  public getFirst(
+    keys: string[],
+    defaultValue: any = null,
+    converter: any = (x: any) => x
+  ): any {
     for (const key of keys) {
       const value = this.get(key);
       if (value !== null) {
-        return value;
+        return converter(value);
       }
     }
     return defaultValue;

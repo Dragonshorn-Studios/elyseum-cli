@@ -251,10 +251,29 @@ export class DiffCoverageCommand implements Command {
 
       let functions = [];
       let branches = [];
+      let uncoveredLineBlocks = [];
 
+      let firstUncoveredLine = 0;
+      let uncoveredBlockLength = 0;
       for (let line of coverageData.lines.details) {
-        if (changedLineNumbers.has(line.line) && line.hit > 0) {
-          coveredLines++;
+        if (changedLineNumbers.has(line.line)) {
+          if (line.hit > 0) {
+            coveredLines++;
+            if (uncoveredBlockLength > 0) {
+              uncoveredLineBlocks.push({
+                hit: false,
+                start: firstUncoveredLine,
+                end: firstUncoveredLine + uncoveredBlockLength,
+              });
+              uncoveredBlockLength = 0;
+            }
+            firstUncoveredLine = line.line + 1;
+          } else {
+            if (firstUncoveredLine === 0) {
+              firstUncoveredLine = line.line;
+            }
+            uncoveredBlockLength++;
+          }
         }
       }
       for (let _function of coverageData.functions.details) {
@@ -287,6 +306,7 @@ export class DiffCoverageCommand implements Command {
           total: changedLineCount,
           covered: coveredLines,
           percent: (coveredLines / changedLineCount) * 100,
+          details: uncoveredLineBlocks,
         },
         functions: {
           total: totalFunctions,

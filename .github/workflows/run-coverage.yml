@@ -1,0 +1,24 @@
+name: Run Coverage Check
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  run-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run elyseum-cli
+        shell: bash
+        run: ./elyseum-cli diff-coverage --reporter.coverage=github-pr-comment --reporter.coverage.github-pr-comment.comment-name "Coverage Report"
