@@ -22,6 +22,11 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
       type: "int",
       default: 80,
     } as ConfigElement,
+    "quality-gate-fail": {
+      help: "The quality gate for coverage to fail",
+      type: "int",
+      default: 50,
+    } as ConfigElement,
   };
 
   report(diffCoverage: CoverageResult) {
@@ -257,7 +262,9 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
 
   error(message: string, details?: any): void {
     if (!process.env.GITHUB_ACTIONS || !process.env.GITHUB_EVENT_NAME) {
-      console.error("Not running in GitHub CI environment, skipping GitHub PR comment coverage reporter");
+      console.error(
+        "Not running in GitHub CI environment, skipping GitHub PR comment coverage reporter"
+      );
       return;
     }
     let repoName = process.env.GITHUB_REPOSITORY || "";
