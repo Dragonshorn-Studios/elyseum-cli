@@ -25,5 +25,5 @@ jobs:
         with:
           command: "diff-coverage"
           comment-name: "PR Diff Coverage Reporter"
-          use-dev-elyseum-cli: true
+          use-dev-elyseum-cli: ${{ github.head_ref }}
         continue-on-error: true
