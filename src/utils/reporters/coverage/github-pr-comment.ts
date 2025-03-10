@@ -177,7 +177,7 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
     markdown += `\n\n---\n\n${reportInfo}`;
 
     // write the markdown to a file
-    fs.writeFileSync(markdown, commentFilePath);
+    fs.writeFileSync(commentFilePath, markdown);
     let annotations = [];
     if (createAnnotations) {
       for (const file of diffCoverage.files) {
