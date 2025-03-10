@@ -23,7 +23,7 @@ jobs:
         uses: Dragonshorn-Studios/elyseum-coverage-reporter-action@main
         if: always()
         with:
-          result-file-path: "coverage/coverage-diff.md"
           command: "diff-coverage"
           comment-name: "PR Diff Coverage Reporter"
+          use-dev-elyseum-cli: true
         continue-on-error: true
