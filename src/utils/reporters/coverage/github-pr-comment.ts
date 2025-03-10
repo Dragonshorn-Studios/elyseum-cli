@@ -13,6 +13,16 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
       type: "str",
       default: "coverage/github.pr.coverage.md",
     } as ConfigElement,
+    "comment-file-path": {
+      help: "The file path of the comment",
+      type: "str",
+      default: "coverage/github.pr.coverage.md",
+    } as ConfigElement,
+    "annotation-file-path": {
+      help: "The file path of the annotations",
+      type: "str",
+      default: "coverage/github.pr.annotations.json",
+    } as ConfigElement,
     "create-annotations": {
       help: "Create annotations for uncovered line groups, methods and branches",
       action: "store_true",
@@ -50,16 +60,22 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
         "reporter.coverage.quality-gate",
         "reporter.coverage.github-pr-comment.quality-gate",
       ],
-      80,
-      parseInt
+      80
     );
     const qualityGateFail = Config.getInstance().getFirst(
       [
         "reporter.coverage.quality-gate-fail",
         "reporter.coverage.github-pr-comment.quality-gate-fail",
       ],
-      50,
-      parseInt
+      50
+    );
+    const commentFilePath = Config.getInstance().getFirst(
+      ["reporter.coverage.github-pr-comment.comment-file-path"],
+      "coverage/github.pr.coverage.md"
+    );
+    const annotationFilePath = Config.getInstance().getFirst(
+      ["reporter.coverage.github-pr-comment.annotation-file-path"],
+      "coverage/github.pr.annotations.json"
     );
     let repoName = process.env.GITHUB_REPOSITORY || "";
     let repo = repoName.split("/")[1];
@@ -160,39 +176,8 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
 
     markdown += `\n\n---\n\n${reportInfo}`;
 
-    const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
-    const prNumber =
-      process.env.GITHUB_EVENT_NAME === "pull_request"
-        ? process.env.GITHUB_EVENT_NUMBER
-        : null;
-    if (prNumber) {
-      octokit.rest.issues
-        .listComments({
-          owner,
-          repo,
-          issue_number: parseInt(prNumber),
-        })
-        .then((response: any) => {
-          const comment = response.data.find((comment: any) =>
-            comment.body.startsWith(commentFirstLine)
-          );
-          if (comment) {
-            octokit.rest.issues.updateComment({
-              owner,
-              repo,
-              comment_id: comment.id,
-              body: markdown,
-            });
-          } else {
-            octokit.rest.issues.createComment({
-              owner,
-              repo,
-              issue_number: parseInt(prNumber),
-              body: markdown,
-            });
-          }
-        });
-    }
+    // write the markdown to a file
+    fs.writeFileSync(markdown, commentFilePath);
     let annotations = [];
     if (createAnnotations) {
       for (const file of diffCoverage.files) {
@@ -234,7 +219,7 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
         }
       }
     }
-    octokit.rest.checks.create({
+    const checkData = {
       owner,
       repo,
       name: "Quality Gate",
@@ -257,10 +242,15 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
         text: markdown,
         annotations: annotations,
       },
-    });
+    };
+    fs.writeFileSync(annotationFilePath, JSON.stringify(checkData));
   }
 
   error(message: string, details?: any): void {
+    const annotationFilePath = Config.getInstance().getFirst(
+      ["reporter.coverage.github-pr-comment.annotation-file-path"],
+      "coverage/github.pr.annotations.json"
+    );
     if (!process.env.GITHUB_ACTIONS || !process.env.GITHUB_EVENT_NAME) {
       console.error(
         "Not running in GitHub CI environment, skipping GitHub PR comment coverage reporter"
@@ -270,6 +260,16 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
     let repoName = process.env.GITHUB_REPOSITORY || "";
     let repo = repoName.split("/")[1];
     let owner = repoName.split("/")[0];
+    let commentResultMd = `# Coverage Quality Gate\n\n> [!CAUTION]\n> ### Coverage Quality Gate Failed 🟥\n`;
+    commentResultMd += `> ${message}\n`;
+    commentResultMd += `> ${JSON.stringify(details)}\n`;
+    fs.writeFileSync(
+      Config.getInstance().getFirst(
+        ["reporter.coverage.github-pr-comment.comment-file-path"],
+        "coverage/github.pr.coverage.md"
+      ),
+      commentResultMd
+    );
     console.error(message, details);
     const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
     const prNumber =
@@ -277,7 +277,7 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
         ? process.env.GITHUB_EVENT_NUMBER
         : null;
     if (prNumber) {
-      octokit.rest.checks.create({
+      const checkData = {
         owner,
         repo,
         name: "Quality Gate",
@@ -288,7 +288,8 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
           summary: message,
           text: JSON.stringify(details),
         },
-      });
+      };
+      fs.writeFileSync(annotationFilePath, JSON.stringify(checkData));
     }
   }
 
