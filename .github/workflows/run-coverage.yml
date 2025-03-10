@@ -28,3 +28,10 @@ jobs:
 
       - name: Run elyseum-cli
         run: elyseum-cli diff-coverage --reporter.coverage=github-pr-comment --reporter.coverage.github-pr-comment.comment-name "Coverage Report"
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_EVENT_NUMBER: ${{ github.event.number }}
