@@ -44,6 +44,10 @@ class MarkdownTableCoverageReporter implements CoverageReporter {
     console.log(markdown);
   }
 
+  error(message: string, details?: any) {
+    console.error(message, details);
+  }
+
   percentOrNA(percent: any) {
     return !isNaN(percent) ? percent.toFixed(2) + "%" : "N/A";
   }

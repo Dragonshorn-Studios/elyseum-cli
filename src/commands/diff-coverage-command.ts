@@ -176,8 +176,11 @@ export class DiffCoverageCommand implements Command {
       for (let reporter of getCoverageReportersFromArgs(args)) {
         reporter.report(diffCoverage);
       }
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      Logger.error(`Error running diff-coverage command: ${error.message}`);
+      for (let reporter of getCoverageReportersFromArgs(args)) {
+        reporter.error(error.message, error);
+      }
     }
   }
 

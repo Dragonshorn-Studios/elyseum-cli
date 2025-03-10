@@ -253,6 +253,29 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
     });
   }
 
+  error(message: string, details?: any): void {
+    console.error(message, details);
+    const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+    const prNumber =
+      process.env.GITHUB_EVENT_NAME === "pull_request"
+        ? process.env.GITHUB_EVENT_NUMBER
+        : null;
+    if (prNumber) {
+      octokit.rest.checks.create({
+        owner: process.env.GITHUB_REPOSITORY_OWNER,
+        repo: process.env.GITHUB_REPOSITORY,
+        name: "Quality Gate",
+        head_sha: process.env.GITHUB_SHA,
+        status: "failure",
+        output: {
+          title: "Coverage Quality Gate",
+          summary: "Coverage Quality Gate Failed",
+          text: message,
+        },
+      });
+
+  }
+
   private getIcon(percent: number): string {
     // emoji based
     if (percent >= 80) {
