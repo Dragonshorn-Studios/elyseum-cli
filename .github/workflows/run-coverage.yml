@@ -19,19 +19,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install dependencies
-        run: npm install
-
-      # install the elyseum-cli package
-      - name: Install elyseum-cli
-        run: npm link .
-
-      - name: Run elyseum-cli
-        run: elyseum-cli diff-coverage --reporter.coverage=github-pr-comment --reporter.coverage.github-pr-comment.comment-name "Coverage Report"
-        env:
-          GITHUB_BASE_REF: ${{ github.base_ref }}
-          GITHUB_SHA: ${{ github.sha }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
-          GITHUB_EVENT_NUMBER: ${{ github.event.number }}
+      - name: Generate Diff Coverage Report
+        uses: Dragonshorn-Studios/elyseum-coverage-reporter-action@main
+        if: always()
+        with:
+          result-file-path: "coverage/coverage-diff.md"
+          command: "diff-coverage"
+          comment-name: "PR Diff Coverage Reporter"
+          workdir: ./head
+        continue-on-error: true
