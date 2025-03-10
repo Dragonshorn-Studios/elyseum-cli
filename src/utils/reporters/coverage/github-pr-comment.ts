@@ -269,11 +269,11 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
         status: "failure",
         output: {
           title: "Coverage Quality Gate",
-          summary: "Coverage Quality Gate Failed",
-          text: message,
+          summary: message,
+          text: JSON.stringify(details),
         },
       });
-
+    }
   }
 
   private getIcon(percent: number): string {

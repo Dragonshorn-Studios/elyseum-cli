@@ -93,7 +93,7 @@ class CliTableCoverageReporter implements CoverageReporter {
   error(message: string, details?: any) {
     console.error(chalk.red(message));
     if (details) {
-      console.error(details.map((detail: any) => chalk.red(detail)).join("\n"));
+      console.error(JSON.stringify(details, null, 2));
     }
   }
 
