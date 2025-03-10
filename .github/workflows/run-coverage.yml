@@ -26,5 +26,4 @@ jobs:
           result-file-path: "coverage/coverage-diff.md"
           command: "diff-coverage"
           comment-name: "PR Diff Coverage Reporter"
-          workdir: .
         continue-on-error: true
