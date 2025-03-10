@@ -90,6 +90,13 @@ class CliTableCoverageReporter implements CoverageReporter {
     console.log(table.toString());
   }
 
+  error(message: string, details?: any) {
+    console.error(chalk.red(message));
+    if (details) {
+      console.error(JSON.stringify(details, null, 2));
+    }
+  }
+
   private colorizePercentage(text: string): string {
     // get percentage using regex
     const parsed = text.match(/(\d+(\.\d+)?)\%/);

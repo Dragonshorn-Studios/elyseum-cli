@@ -13,12 +13,18 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - name: Checkout code
         uses: actions/checkout@v4
-      - name: Install dependencies
-        run: npm install
+        with:
+          fetch-depth: 0
 
-      - name: Run elyseum-cli
-        shell: bash
-        run: ./elyseum-cli diff-coverage --reporter.coverage=github-pr-comment --reporter.coverage.github-pr-comment.comment-name "Coverage Report"
+      - name: Generate Diff Coverage Report
+        uses: Dragonshorn-Studios/elyseum-coverage-reporter-action@main
+        if: always()
+        with:
+          result-file-path: "coverage/coverage-diff.md"
+          command: "diff-coverage"
+          comment-name: "PR Diff Coverage Reporter"
+          workdir: .
+        continue-on-error: true

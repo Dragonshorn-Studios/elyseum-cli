@@ -56,7 +56,9 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
       50,
       parseInt
     );
-    let repoName = process.env.GITHUB_REPOSITORY;
+    let repoName = process.env.GITHUB_REPOSITORY || "";
+    let repo = repoName.split("/")[1];
+    let owner = repoName.split("/")[0];
     let runId = process.env.GITHUB_RUN_ID;
 
     let commentFirstLine = `# ${commentName}\n\n`;
@@ -161,8 +163,8 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
     if (prNumber) {
       octokit.rest.issues
         .listComments({
-          owner: process.env.GITHUB_REPOSITORY_OWNER,
-          repo: process.env.GITHUB_REPOSITORY,
+          owner,
+          repo,
           issue_number: parseInt(prNumber),
         })
         .then((response: any) => {
@@ -171,15 +173,15 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
           );
           if (comment) {
             octokit.rest.issues.updateComment({
-              owner: process.env.GITHUB_REPOSITORY_OWNER,
-              repo: process.env.GITHUB_REPOSITORY,
+              owner,
+              repo,
               comment_id: comment.id,
               body: markdown,
             });
           } else {
             octokit.rest.issues.createComment({
-              owner: process.env.GITHUB_REPOSITORY_OWNER,
-              repo: process.env.GITHUB_REPOSITORY,
+              owner,
+              repo,
               issue_number: parseInt(prNumber),
               body: markdown,
             });
@@ -228,8 +230,8 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
       }
     }
     octokit.rest.checks.create({
-      owner: process.env.GITHUB_REPOSITORY_OWNER,
-      repo: process.env.GITHUB_REPOSITORY,
+      owner,
+      repo,
       name: "Quality Gate",
       head_sha: diffCoverage.headSha,
       status: "completed",
@@ -251,6 +253,36 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
         annotations: annotations,
       },
     });
+  }
+
+  error(message: string, details?: any): void {
+    if (!process.env.GITHUB_ACTIONS || !process.env.GITHUB_EVENT_NAME) {
+      console.error("Not running in GitHub CI environment, skipping GitHub PR comment coverage reporter");
+      return;
+    }
+    let repoName = process.env.GITHUB_REPOSITORY || "";
+    let repo = repoName.split("/")[1];
+    let owner = repoName.split("/")[0];
+    console.error(message, details);
+    const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+    const prNumber =
+      process.env.GITHUB_EVENT_NAME === "pull_request"
+        ? process.env.GITHUB_EVENT_NUMBER
+        : null;
+    if (prNumber) {
+      octokit.rest.checks.create({
+        owner,
+        repo,
+        name: "Quality Gate",
+        head_sha: process.env.GITHUB_SHA,
+        status: "failure",
+        output: {
+          title: "Coverage Quality Gate",
+          summary: message,
+          text: JSON.stringify(details),
+        },
+      });
+    }
   }
 
   private getIcon(percent: number): string {
