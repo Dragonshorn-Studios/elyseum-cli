@@ -108,20 +108,26 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
           coverageQualityText += `> [!TIP]\n> ### Coverage Quality Gate Passed 🟩\n`;
         }
         coverageQualityText += `> ${this.getIcon(
-          diffCoverage.lines.percent
+          diffCoverage.lines.percent,
+          qualityGate,
+          qualityGateFail
         )} Lines: ${diffCoverage.lines.percent.toFixed(
           2
-        )}% (baseline: ${qualityGate}%)\n`;
+        )}% (baseline: ${qualityGate}%, failing: ${qualityGateFail}%)\n`;
         coverageQualityText += `> ${this.getIcon(
-          diffCoverage.functions.percent
+          diffCoverage.functions.percent,
+          qualityGate,
+          qualityGateFail
         )} Functions: ${diffCoverage.functions.percent.toFixed(
           2
-        )}% (baseline: ${qualityGate}%)\n`;
+        )}% (baseline: ${qualityGate}%, failing: ${qualityGateFail}%)\n`;
         coverageQualityText += `> ${this.getIcon(
-          diffCoverage.branches.percent
+          diffCoverage.branches.percent,
+          qualityGate,
+          qualityGateFail
         )} Branches: ${diffCoverage.branches.percent.toFixed(
           2
-        )}% (baseline: ${qualityGate}%)\n\n`;
+        )}% (baseline: ${qualityGate}%, failing: ${qualityGateFail}%)\n\n`;
       }
 
       let summary = `| Type      | Total | Covered | Percent |\n`;
@@ -129,17 +135,23 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
       summary += `| Lines     | ${diffCoverage.lines.total} | ${
         diffCoverage.lines.covered
       } | ${this.getIcon(
-        diffCoverage.lines.percent
+        diffCoverage.lines.percent,
+        qualityGate,
+        qualityGateFail
       )} ${diffCoverage.lines.percent.toFixed(2)}% |\n`;
       summary += `| Functions | ${diffCoverage.functions.total} | ${
         diffCoverage.functions.covered
       } | ${this.getIcon(
-        diffCoverage.functions.percent
+        diffCoverage.functions.percent,
+        qualityGate,
+        qualityGateFail
       )} ${diffCoverage.functions.percent.toFixed(2)}% |\n`;
       summary += `| Branches  | ${diffCoverage.branches.total} | ${
         diffCoverage.branches.covered
       } | ${this.getIcon(
-        diffCoverage.branches.percent
+        diffCoverage.branches.percent,
+        qualityGate,
+        qualityGateFail
       )} ${diffCoverage.branches.percent.toFixed(2)}% |\n`;
 
       markdown += `### Coverage Summary\n\n${summary}`;
@@ -285,12 +297,16 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
     }
   }
 
-  private getIcon(percent: number): string {
+  private getIcon(
+    percent: number,
+    qualityGate: number,
+    qualityGateFail: number
+  ): string {
     // emoji based
-    if (percent >= 80) {
+    if (percent >= qualityGate) {
       // green circle
       return "🟢";
-    } else if (percent >= 50) {
+    } else if (percent >= qualityGateFail) {
       return "🟡";
     } else {
       return "🔴";
