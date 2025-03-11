@@ -314,9 +314,10 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
     qualityGate: number,
     qualityGateFail: number
   ): string {
-    // emoji based
+    if (isNaN(percent)) {
+      return "⚪";
+    }
     if (percent >= qualityGate) {
-      // green circle
       return "🟢";
     } else if (percent >= qualityGateFail) {
       return "🟡";
