@@ -259,7 +259,7 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
         qualityGateFailed ? "Failed" : qualityGateWarning ? "Warning" : "Passed"
       }`,
       text: markdown,
-      annotations: annotations,
+      annotations: annotations.slice(0, 50),
     };
     fs.writeFileSync(annotationFilePath, JSON.stringify(checkData));
   }
