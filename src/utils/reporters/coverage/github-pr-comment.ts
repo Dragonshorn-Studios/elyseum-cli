@@ -90,13 +90,25 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
     if (diffCoverage.lines.total) {
       // lines, functions, branches average percentage must be greater than or equal to qualityGate
       qualityGateFailed =
-        diffCoverage.lines.percent < qualityGateFail ||
-        diffCoverage.functions.percent < qualityGateFail ||
-        diffCoverage.branches.percent < qualityGateFail;
+        (isNaN(diffCoverage.lines.percent)
+          ? false
+          : diffCoverage.lines.percent < qualityGateFail) ||
+        (isNaN(diffCoverage.functions.percent)
+          ? false
+          : diffCoverage.functions.percent < qualityGateFail) ||
+        (isNaN(diffCoverage.branches.percent)
+          ? false
+          : diffCoverage.branches.percent < qualityGateFail);
       qualityGateWarning =
-        diffCoverage.lines.percent < qualityGate ||
-        diffCoverage.functions.percent < qualityGate ||
-        diffCoverage.branches.percent < qualityGate;
+        (isNaN(diffCoverage.lines.percent)
+          ? false
+          : diffCoverage.lines.percent < qualityGate) ||
+        (isNaN(diffCoverage.functions.percent)
+          ? false
+          : diffCoverage.functions.percent < qualityGate) ||
+        (isNaN(diffCoverage.branches.percent)
+          ? false
+          : diffCoverage.branches.percent < qualityGate);
 
       let coverageQualityText = ``;
       if (qualityGate) {
@@ -111,23 +123,23 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
           diffCoverage.lines.percent,
           qualityGate,
           qualityGateFail
-        )} Lines: ${diffCoverage.lines.percent.toFixed(
-          2
-        )}% (baseline: ${qualityGate}%, failing: ${qualityGateFail}%)\n`;
+        )} Lines: ${this.percentOrNA(
+          diffCoverage.lines.percent
+        )} (baseline: ${qualityGate}%, failing: ${qualityGateFail}%)\n`;
         coverageQualityText += `> ${this.getIcon(
           diffCoverage.functions.percent,
           qualityGate,
           qualityGateFail
-        )} Functions: ${diffCoverage.functions.percent.toFixed(
-          2
-        )}% (baseline: ${qualityGate}%, failing: ${qualityGateFail}%)\n`;
+        )} Functions: ${this.percentOrNA(
+          diffCoverage.functions.percent
+        )} (baseline: ${qualityGate}%, failing: ${qualityGateFail}%)\n`;
         coverageQualityText += `> ${this.getIcon(
           diffCoverage.branches.percent,
           qualityGate,
           qualityGateFail
-        )} Branches: ${diffCoverage.branches.percent.toFixed(
-          2
-        )}% (baseline: ${qualityGate}%, failing: ${qualityGateFail}%)\n\n`;
+        )} Branches: ${this.percentOrNA(
+          diffCoverage.branches.percent
+        )} (baseline: ${qualityGate}%, failing: ${qualityGateFail}%)\n\n`;
       }
 
       let summary = `| Type      | Total | Covered | Percent |\n`;
@@ -138,21 +150,21 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
         diffCoverage.lines.percent,
         qualityGate,
         qualityGateFail
-      )} ${diffCoverage.lines.percent.toFixed(2)}% |\n`;
+      )} ${this.percentOrNA(diffCoverage.lines.percent)} |\n`;
       summary += `| Functions | ${diffCoverage.functions.total} | ${
         diffCoverage.functions.covered
       } | ${this.getIcon(
         diffCoverage.functions.percent,
         qualityGate,
         qualityGateFail
-      )} ${diffCoverage.functions.percent.toFixed(2)}% |\n`;
+      )} ${this.percentOrNA(diffCoverage.functions.percent)} |\n`;
       summary += `| Branches  | ${diffCoverage.branches.total} | ${
         diffCoverage.branches.covered
       } | ${this.getIcon(
         diffCoverage.branches.percent,
         qualityGate,
         qualityGateFail
-      )} ${diffCoverage.branches.percent.toFixed(2)}% |\n`;
+      )} ${this.percentOrNA(diffCoverage.branches.percent)} |\n`;
 
       markdown += `### Coverage Summary\n\n${summary}`;
 
