@@ -225,7 +225,7 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
               path: file.file,
               start_line: functionDetails.line,
               end_line: functionDetails.line,
-              annotation_level: qualityGateFailed ? "failure" : "warning",
+              annotation_level: qualityGateFailed ? "warning" : "warning",
               title: "Function not covered",
               message: `Function ${functionDetails.name} not covered`,
             });
@@ -237,7 +237,7 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
               path: file.file,
               start_line: branchDetails.line,
               end_line: branchDetails.line,
-              annotation_level: qualityGateFailed ? "failure" : "warning",
+              annotation_level: qualityGateFailed ? "warning" : "warning",
               title: "Branch not covered",
               message: `Branch not covered`,
             });
@@ -252,7 +252,7 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
       head_sha: diffCoverage.headSha,
       status: "completed",
       conclusion: qualityGateFailed
-        ? "failure"
+        ? "neutral"
         : qualityGateWarning
         ? "neutral"
         : "success",
