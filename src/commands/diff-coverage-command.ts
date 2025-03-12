@@ -262,8 +262,11 @@ export class DiffCoverageCommand implements Command {
           changedLineNumbers.add(line);
           hunkLine++;
         }
-        changedLineCount += hunk.newLines;
       }
+      changedLineCount = changedLineNumbers.size;
+      Logger.debug(
+        `Changed line count for file ${normalizedPath}: ${changedLineCount}`
+      );
       let coveredLines = 0;
       let coveredFunctions = 0;
       let totalFunctions = 0;
