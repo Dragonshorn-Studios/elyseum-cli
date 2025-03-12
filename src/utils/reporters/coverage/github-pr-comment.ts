@@ -205,16 +205,18 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
     let annotations = [];
     if (createAnnotations) {
       for (const file of diffCoverage.files) {
-        for (let lineBlock of file.lines.details || []) {
-          if (lineBlock.hit === 0) {
-            annotations.push({
-              path: file.file,
-              start_line: lineBlock.start,
-              end_line: lineBlock.end,
-              annotation_level: "failure",
-              title: "Lines not covered",
-              message: `Lines not covered`,
-            });
+        if (false) {
+          for (let lineBlock of file.lines.details || []) {
+            if (lineBlock.hit === 0) {
+              annotations.push({
+                path: file.file,
+                start_line: lineBlock.start,
+                end_line: lineBlock.end,
+                annotation_level: qualityGateFailed ? "failure" : "warning",
+                title: "Lines not covered",
+                message: `Lines not covered`,
+              });
+            }
           }
         }
         for (let functionDetails of file.functions.details || []) {
@@ -223,7 +225,7 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
               path: file.file,
               start_line: functionDetails.line,
               end_line: functionDetails.line,
-              annotation_level: "failure",
+              annotation_level: qualityGateFailed ? "failure" : "warning",
               title: "Function not covered",
               message: `Function ${functionDetails.name} not covered`,
             });
@@ -235,7 +237,7 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
               path: file.file,
               start_line: branchDetails.line,
               end_line: branchDetails.line,
-              annotation_level: "failure",
+              annotation_level: qualityGateFailed ? "failure" : "warning",
               title: "Branch not covered",
               message: `Branch not covered`,
             });
@@ -269,6 +271,10 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
       ["reporter.coverage.github-pr-comment.annotation-file-path"],
       "coverage/github.pr.annotations.json"
     );
+    const commentName = Config.getInstance().getFirst(
+      ["reporter.coverage.github-pr-comment.comment-name"],
+      "coverage/github.pr.coverage.md"
+    );
     if (!process.env.GITHUB_ACTIONS || !process.env.GITHUB_EVENT_NAME) {
       console.error(
         "Not running in GitHub CI environment, skipping GitHub PR comment coverage reporter"
@@ -278,7 +284,7 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
     let repoName = process.env.GITHUB_REPOSITORY || "";
     let repo = repoName.split("/")[1];
     let owner = repoName.split("/")[0];
-    let commentResultMd = `# Coverage Quality Gate\n\n> [!CAUTION]\n> ### Coverage Quality Gate Failed 🟥\n`;
+    let commentResultMd = `# ${commentName}\n\n> [!CAUTION]\n> ### Coverage Quality Gate Failed 🟥\n`;
     commentResultMd += `> ${message}\n`;
     commentResultMd += `> ${JSON.stringify(details)}\n`;
     fs.writeFileSync(
