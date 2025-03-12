@@ -237,12 +237,30 @@ export class DiffCoverageCommand implements Command {
       let changedLineNumbers = new Set<number>();
       let changedLineCount = 0;
       for (let hunk of file.diff.hunks) {
+        let hunkLine = 0;
         for (
           let line = hunk.newStart;
           line < hunk.newStart + hunk.newLines;
           line++
         ) {
+          if (hunk.lines) {
+            if (hunk.lines[hunkLine].startsWith("-")) {
+              continue;
+            } else if (hunk.lines[hunkLine].startsWith("+")) {
+              // ignore comment lines
+              const changedLine = hunk.lines[hunkLine].replace(/^\+/, "");
+              if (
+                changedLine.trim().startsWith("//") ||
+                changedLine.trim() === "" ||
+                changedLine.trim().startsWith("/*") ||
+                changedLine.trim().startsWith("*")
+              ) {
+                continue;
+              }
+            }
+          }
           changedLineNumbers.add(line);
+          hunkLine++;
         }
         changedLineCount += hunk.newLines;
       }

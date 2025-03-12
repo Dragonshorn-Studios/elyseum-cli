@@ -205,18 +205,16 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
     let annotations = [];
     if (createAnnotations) {
       for (const file of diffCoverage.files) {
-        if (false) {
-          for (let lineBlock of file.lines.details || []) {
-            if (lineBlock.hit === 0) {
-              annotations.push({
-                path: file.file,
-                start_line: lineBlock.start,
-                end_line: lineBlock.end,
-                annotation_level: qualityGateFailed ? "failure" : "warning",
-                title: "Lines not covered",
-                message: `Lines not covered`,
-              });
-            }
+        for (let lineBlock of file.lines.details || []) {
+          if (lineBlock.hit === 0) {
+            annotations.push({
+              path: file.file,
+              start_line: lineBlock.start,
+              end_line: lineBlock.end,
+              annotation_level: qualityGateFailed ? "failure" : "warning",
+              title: "Lines not covered",
+              message: `Lines not covered`,
+            });
           }
         }
         for (let functionDetails of file.functions.details || []) {
@@ -225,7 +223,7 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
               path: file.file,
               start_line: functionDetails.line,
               end_line: functionDetails.line,
-              annotation_level: qualityGateFailed ? "warning" : "warning",
+              annotation_level: qualityGateFailed ? "failure" : "warning",
               title: "Function not covered",
               message: `Function ${functionDetails.name} not covered`,
             });
@@ -237,7 +235,7 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
               path: file.file,
               start_line: branchDetails.line,
               end_line: branchDetails.line,
-              annotation_level: qualityGateFailed ? "warning" : "warning",
+              annotation_level: qualityGateFailed ? "failure" : "warning",
               title: "Branch not covered",
               message: `Branch not covered`,
             });
@@ -252,7 +250,7 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
       head_sha: diffCoverage.headSha,
       status: "completed",
       conclusion: qualityGateFailed
-        ? "neutral"
+        ? "failure"
         : qualityGateWarning
         ? "neutral"
         : "success",
