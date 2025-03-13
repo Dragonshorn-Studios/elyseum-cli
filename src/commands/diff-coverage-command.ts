@@ -236,6 +236,10 @@ export class DiffCoverageCommand implements Command {
       }
       let changedLineNumbers = new Set<number>();
       let changedLineCount = 0;
+      let coverageFoundLineNumbers = new Set<number>();
+      for (let line of coverageData.lines.details) {
+        coverageFoundLineNumbers.add(line.line);
+      }
       for (let hunk of file.diff.hunks) {
         let hunkLine = 0;
         for (
@@ -243,6 +247,9 @@ export class DiffCoverageCommand implements Command {
           line < hunk.newStart + hunk.newLines;
           line++
         ) {
+          if (!coverageFoundLineNumbers.has(line)) {
+            continue; // this line is not taken into account in coverage
+          }
           if (hunk.lines) {
             if (hunk.lines[hunkLine].startsWith("-")) {
               continue;
