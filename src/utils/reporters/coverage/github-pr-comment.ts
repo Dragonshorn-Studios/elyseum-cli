@@ -37,10 +37,6 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
       type: "int",
       default: 50,
     } as ConfigElement,
-    "fail-action-on-quality-gate": {
-      help: "Mark the check as failed if the quality gate is not met",
-      action: "store_true",
-    } as ConfigElement,
   };
 
   report(diffCoverage: CoverageResult) {
@@ -72,10 +68,6 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
         "reporter.coverage.github-pr-comment.quality-gate-fail",
       ],
       50
-    );
-    const failActionOnQualityGate = Config.getInstance().getFirst(
-      ["reporter.coverage.github-pr-comment.fail-action-on-quality-gate"],
-      false
     );
     const commentFilePath = Config.getInstance().getFirst(
       ["reporter.coverage.github-pr-comment.comment-file-path"],
@@ -258,9 +250,7 @@ class GithubPRCommentCoverageReporter implements CoverageReporter {
       head_sha: diffCoverage.headSha,
       status: "completed",
       conclusion: qualityGateFailed
-        ? failActionOnQualityGate
-          ? "failure"
-          : "neutral"
+        ? "failure"
         : qualityGateWarning
         ? "neutral"
         : "success",
