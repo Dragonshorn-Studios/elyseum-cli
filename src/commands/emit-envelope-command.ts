@@ -115,6 +115,9 @@ export class EmitEnvelopeCommand implements Command {
       const runId = this.option("run-id") ?? identity.run_id;
       const runJobId = this.option("run-job-id") ?? identity.job_id;
       const runAttempt = this.intOption("run-attempt") ?? identity.attempt;
+      if (runAttempt < 1) {
+        throw new InvalidConfigError("run-attempt must be a positive integer.");
+      }
 
       const gateConclusionRaw = this.option("quality-gate-conclusion");
       if (

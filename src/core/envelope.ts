@@ -8,7 +8,8 @@ import schemaJson from "../../schemas/envelope.v1.json";
  * self-check every emitted envelope passes before it is written.
  *
  * Drift between this copy and the host's canonical file is a contract
- * violation caught by the cross-repo contract checks (elyseum#14).
+ * violation; the planned cross-repo contract checks (elyseum#14) will
+ * catch it in CI.
  */
 
 export const SUPPORTED_SCHEMA_VERSION = "1";
