@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -57,13 +58,8 @@ function run(args: string[]) {
 }
 
 function parseEnvelope(out: string): any {
-  // The envelope is the last pretty-printed JSON object on stdout; DEBUG
-  // lines (also stdout) contain their own single-line JSON.
-  // The envelope root is the last "{" at line start; nested braces are
-  // preceded by spaces.
-  const start = out.lastIndexOf("\n{");
-  const end = out.lastIndexOf("}") + 1;
-  return JSON.parse(out.slice(start, end));
+  // Diagnostics go to stderr, so stdout carries exactly one JSON document.
+  return JSON.parse(out);
 }
 
 describe("emit-envelope", () => {
@@ -74,6 +70,9 @@ describe("emit-envelope", () => {
     const envelope = parseEnvelope(result.out);
     expect(validateSchema(envelope)).toBe(true);
     expect(envelope.commit.sha).toBe(headSha);
+    // unknown test facts are omitted, never zeroed
+    expect(envelope.tests).toBeUndefined();
+    expect(envelope.quality_gate).toBeUndefined();
     expect(envelope.run.provider).toBe("generic");
     // generic-CI fallback: run_id is the HEAD sha, attempt 1
     expect(envelope.run.run_id).toBe(headSha);
@@ -126,5 +125,30 @@ describe("emit-envelope", () => {
   it("exits 4 when the LCOV report is missing", () => {
     const result = run(["emit-envelope", "--emit-envelope.lcov-path", "nope.info"]);
     expect(result.code).toBe(4);
+  });
+
+  it("exits 2 when a quality-gate conclusion override is invalid", () => {
+    const result = run([
+      "emit-envelope",
+      "--emit-envelope.quality-gate-conclusion", "banana",
+    ]);
+    expect(result.code).toBe(2);
+    expect(result.err).toContain("quality-gate-conclusion");
+  });
+
+  it("exits 3 when git is missing (commit facts are required)", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "elyseum-emit-nogit-"));
+    try {
+      mkdirSync(path.join(dir, "coverage"), { recursive: true });
+      writeFileSync(path.join(dir, "coverage", "lcov.info"), LCOV);
+
+      const result = spawnSync(process.execPath, [CLI, "emit-envelope"], {
+        cwd: dir,
+        encoding: "utf-8",
+      });
+      expect(result.status).toBe(3);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

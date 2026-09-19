@@ -7,7 +7,8 @@ import { MissingGitError } from "./errors";
  * a documented generic-CI fallback:
  *
  * - GitHub Actions: provider "github", run_id from GITHUB_RUN_ID, job_id
- *   from GITHUB_RUN_JOB_ID (when present), attempt from
+ *   from GITHUB_JOB (the job's key; matrix legs share it — pass
+ *   --emit-envelope.run-job-id to disambiguate), attempt from
  *   GITHUB_RUN_ATTEMPT, url from the canonical run URL.
  * - Any other CI / local runs: provider "generic", run_id = the git HEAD
  *   SHA, job_id null, attempt 1. The idempotency key is then the commit —
@@ -27,7 +28,7 @@ export function resolveRunIdentity(env: NodeJS.ProcessEnv, headSha: string): Run
     return {
       provider: "github",
       run_id: env.GITHUB_RUN_ID,
-      job_id: env.GITHUB_RUN_JOB_ID ?? null,
+      job_id: env.GITHUB_JOB ?? null,
       attempt: Number.isFinite(attempt) && attempt >= 1 ? Math.floor(attempt) : 1,
       url: env.GITHUB_REPOSITORY
         ? `https://github.com/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}`
