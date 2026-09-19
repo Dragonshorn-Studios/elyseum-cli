@@ -1,21 +1,33 @@
-import git from "isomorphic-git";
 import fs from "fs/promises";
-import { merge } from "diff";
-import parse from "lcov-parse";
+import git from "isomorphic-git";
 import { minimatch } from "minimatch";
 import { getCoverageExcludes } from "../utils/config-readers/coverage-config-reader";
 import { getCoverageReportersFromArgs } from "../utils/reporters/reporters";
-import {
-  CoverageResult,
-  CoverageDetail,
-  CoverageFile,
-} from "../types/coverage-result";
 import { Command, CommandMap } from "./command";
 import Config, { CustomConfig } from "../config";
 import { Logger } from "../utils/logger";
-import { Octokit, App } from "octokit";
+import { Octokit } from "octokit";
 import { exec } from "child_process";
 import { promisify } from "util";
+import { CliError, MissingLcovError } from "../core/errors";
+import { LcovRecord, readLcovReport } from "../core/lcov";
+import {
+  assertGitRepository,
+  calculateDiffCoverage,
+  getChangedFiles,
+} from "../core/git-diff";
+import { evaluateQualityGate } from "../core/quality-gate";
+import { EXIT_CODES } from "../core/exit-codes";
+import fsSync from "fs";
+
+const COVERAGE_INCLUDES = [
+  "**/*.ts",
+  "**/*.tsx",
+  "**/*.js",
+  "**/*.jsx",
+  "**/*.mjs",
+  "**/*.vue",
+];
 
 export class DiffCoverageCommand implements Command {
   name: string = "diff-coverage";
@@ -29,7 +41,7 @@ export class DiffCoverageCommand implements Command {
         : "origin/main",
     },
     dynamic: {
-      help: "The head branch/sha to compare against",
+      help: "Resolve the base from the GitHub pull request",
       type: "str",
       required: false,
       default: "",
@@ -41,419 +53,165 @@ export class DiffCoverageCommand implements Command {
       default: process.env.GITHUB_SHA || "HEAD",
     },
     "changed-files": {
-      help: "Comma separated list of changed files",
+      help: "Comma separated list of changed files (skips git)",
       type: "str",
       required: false,
       default: "",
     },
+    "lcov-path": {
+      help: "Path to the LCOV report",
+      type: "str",
+      required: false,
+      default: "coverage/lcov.info",
+    },
   };
+
   constructor(commands: CommandMap) {
     commands[this.name] = this;
   }
 
-  public async run(args: any): Promise<void> {
-    const gitExists = await fs
-      .access(".git")
-      .then(() => true)
-      .catch(() => false);
-    if (!gitExists) {
-      return;
-    }
-
-    const coverageExcludes = getCoverageExcludes(process.cwd());
-    const coverageIncludes = [
-      "**/*.ts",
-      "**/*.tsx",
-      "**/*.js",
-      "**/*.jsx",
-      "**/*.mjs",
-      "**/*.vue",
-    ];
-
+  public async run(args: any): Promise<number> {
     try {
       Logger.debug("Running diff-coverage command");
-      Logger.debug(
-        `head branch/sha: ${Config.get(
-          this.name,
-          "head"
-        )}, base branch/sha: ${Config.get(this.name, "base")}`
-      );
-      let changedFiles = Config.get(this.name, "changed-files", "");
-      let headSha = await git.resolveRef({
-        fs,
-        dir: process.cwd(),
-        ref: Config.get(this.name, "head"),
-      });
-      let baseSha = null;
-      if (Config.get(this.name, "dynamic") === "gh") {
-        let token = process.env.GITHUB_TOKEN;
-        if (!token) {
-          const execPromise = promisify(exec);
-          const { stdout, stderr } = await execPromise("gh auth token");
-          if (stderr) {
-            throw new Error(stderr);
-          }
-          token = stdout.trim();
-          if (!token) {
-            throw new Error("GITHUB_TOKEN is not set");
-          }
-        }
-        let prNumber = process.env.GITHUB_PR_NUMBER;
-        const octokit = new Octokit({ auth: token });
-        const branchName = await git.currentBranch({
-          fs,
-          dir: process.cwd(),
-        });
-        const repoUrl = await git.listRemotes({
-          fs,
-          dir: process.cwd(),
-        });
-        const [owner, repo] = repoUrl[0].url
-          .replace(/\.git$/, "")
-          .split("/")
-          .slice(-2);
-        Logger.debug(`Owner: ${owner}, Repo: ${repo}`);
-        if (!prNumber) {
-          const prs = await octokit.rest.search.issuesAndPullRequests({
-            q: `head:${branchName} is:pr is:open`,
-          });
-          if (prs.data.total_count === 0) {
-            Logger.info(
-              `No open PR found for branch ${branchName}, using default base branch`
-            );
-          } else {
-            prNumber = prs.data.items[0].number;
-          }
-        }
-        if (prNumber) {
-          const pr = await octokit.rest.pulls.get({
-            owner,
-            repo,
-            pull_number: prNumber,
-          });
-          baseSha = pr.data.base.sha;
-          Logger.debug(`Got base SHA from PR: ${baseSha}`);
-        }
-      }
-      if (!baseSha) {
-        baseSha = await git.resolveRef({
-          fs,
-          dir: process.cwd(),
-          ref: Config.get(this.name, "base"),
-        });
-        Logger.debug(`Got base SHA from config: ${baseSha}`);
-      }
-      Logger.debug(`Changed files: ${changedFiles}`);
-      let files = [];
+
+      const changedFiles = Config.get(this.name, "changed-files", "") as string;
+      const lcovPath = Config.getInstance().getFirst(
+        ["coverage.lcov-path", "diff-coverage.lcov-path"],
+        "coverage/lcov.info",
+      ) as string;
+
+      let headSha = "";
+      let baseSha = "";
+
       if (!changedFiles) {
-        files = await this.getChangedFiles(process.cwd(), headSha, baseSha);
-      } else {
-        files = changedFiles.split(",").map((file: string) => {
-          return {
-            path: file,
-          };
+        await assertGitRepository(process.cwd());
+        headSha = await git.resolveRef({
+          fs: fs as any,
+          dir: process.cwd(),
+          ref: Config.get(this.name, "head"),
         });
+        baseSha = await this.resolveBaseSha(headSha);
+        Logger.debug(`head: ${headSha}, base: ${baseSha}`);
       }
 
-      files = files.filter((file: any) => {
+      const coverageExcludes = getCoverageExcludes(process.cwd());
+
+      let files: { path: string }[] = [];
+      if (changedFiles) {
+        files = changedFiles.split(",").map((file) => ({ path: file.trim() }));
+      } else {
+        files = await getChangedFiles(process.cwd(), headSha, baseSha);
+      }
+
+      files = files.filter((file) => {
+        const normalized = file.path.replace(/^\//, "");
         return (
-          !coverageExcludes.some((exclude) => {
-            return minimatch(file.path.replace(/^\//, ""), exclude);
-          }) &&
-          coverageIncludes.some((include) => {
-            return minimatch(file.path.replace(/^\//, ""), include);
-          })
+          !coverageExcludes.some((exclude) => minimatch(normalized, exclude)) &&
+          COVERAGE_INCLUDES.some((include) => minimatch(normalized, include))
         );
       });
-      Logger.debug(`Files: ${files.map((file: any) => file.path).join(", ")}`);
-      // normalize file paths
+      Logger.debug(`Changed files: ${files.map((f) => f.path).join(", ")}`);
 
-      let coverage = await this.getCoverageReport("coverage/lcov.info");
-      let diffCoverage = await this.calculateDiffCoverage(files, coverage, {
+      let coverage: LcovRecord[];
+      try {
+        coverage = await readLcovReport(lcovPath);
+      } catch (error) {
+        if (error instanceof MissingLcovError) {
+          Logger.error(error.message);
+          Logger.error(error.actionable);
+          return error.exitCode;
+        }
+        throw error;
+      }
+
+      const diffCoverage = calculateDiffCoverage(files, coverage, {
         headSha,
         baseSha,
       });
-      for (let reporter of getCoverageReportersFromArgs(args)) {
-        reporter.report(diffCoverage);
+
+      for (const reporter of getCoverageReportersFromArgs(args)) {
+        reporter.report(diffCoverage as any);
       }
+
+      const gate = evaluateQualityGate(diffCoverage.lines.percent, {
+        gate: this.numberOption("reporter.coverage.quality-gate"),
+        fail: this.numberOption("reporter.coverage.quality-gate-fail"),
+      });
+
+      if (gate === "failed") {
+        return EXIT_CODES.QUALITY_GATE_FAILED;
+      }
+
+      return EXIT_CODES.SUCCESS;
     } catch (error: any) {
       Logger.error(`Error running diff-coverage command: ${error.message}`);
-      for (let reporter of getCoverageReportersFromArgs(args)) {
+      for (const reporter of getCoverageReportersFromArgs(args)) {
         reporter.error(error.message, error);
       }
+
+      if (error instanceof CliError) {
+        Logger.error(error.actionable);
+        return error.exitCode;
+      }
+
+      return EXIT_CODES.CALCULATION_ERROR;
     }
   }
 
-  private async calculateDiffCoverage(
-    files: any,
-    coverage: any,
-    { headSha, baseSha }: any
-  ): Promise<CoverageResult> {
-    const diffCoverageResult: CoverageResult = {
-      headSha,
-      baseSha,
-      lines: {
-        total: 0,
-        covered: 0,
-        percent: 0,
-      },
-      functions: {
-        total: 0,
-        covered: 0,
-        percent: 0,
-      },
-      branches: {
-        total: 0,
-        covered: 0,
-        percent: 0,
-      },
-      files: [],
-    };
-    for (let file of files) {
-      let normalizedPath = file.path.replace(/^\//, "");
-      const coverageData = coverage.find((c: any) => c.file === normalizedPath);
-      if (!coverageData) {
-        diffCoverageResult.lines.total += file.lines;
-        diffCoverageResult.files.push({
-          file: normalizedPath,
-          lines: {
-            total: file.lines,
-            covered: 0,
-            percent: 0,
-          },
-          functions: {
-            total: 0,
-            covered: 0,
-            percent: 0,
-          },
-          branches: {
-            total: 0,
-            covered: 0,
-            percent: 0,
-          },
-        });
-        continue;
-      }
-      let changedLineNumbers = new Set<number>();
-      let changedLineCount = 0;
-      let coverageFoundLineNumbers = new Set<number>();
-      for (let line of coverageData.lines.details) {
-        coverageFoundLineNumbers.add(line.line);
-      }
-      for (let hunk of file.diff.hunks) {
-        let hunkLine = 0;
-        for (
-          let line = hunk.newStart;
-          line < hunk.newStart + hunk.newLines;
-          line++
-        ) {
-          if (!coverageFoundLineNumbers.has(line)) {
-            continue; // this line is not taken into account in coverage
-          }
-          if (hunk.lines) {
-            if (hunk.lines[hunkLine].startsWith("-")) {
-              continue;
-            } else if (hunk.lines[hunkLine].startsWith("+")) {
-              // ignore comment lines
-              const changedLine = hunk.lines[hunkLine].replace(/^\+/, "");
-              if (
-                changedLine.trim().startsWith("//") ||
-                changedLine.trim() === "" ||
-                changedLine.trim().startsWith("/*") ||
-                changedLine.trim().startsWith("*")
-              ) {
-                continue;
-              }
-            }
-          }
-          changedLineNumbers.add(line);
-          hunkLine++;
-        }
-      }
-      changedLineCount = changedLineNumbers.size;
-      Logger.debug(
-        `Changed line count for file ${normalizedPath}: ${changedLineCount}`
-      );
-      let coveredLines = 0;
-      let coveredFunctions = 0;
-      let totalFunctions = 0;
-      let coveredBranches = 0;
-      let totalBranches = 0;
+  private numberOption(key: string): number | undefined {
+    const value = Config.getInstance().get(key);
+    return typeof value === "number" ? value : undefined;
+  }
 
-      let functions = [];
-      let branches = [];
-      let uncoveredLineBlocks = [];
-
-      let firstUncoveredLine = 0;
-      let uncoveredBlockLength = 0;
-      for (let line of coverageData.lines.details) {
-        if (changedLineNumbers.has(line.line)) {
-          if (line.hit > 0) {
-            coveredLines++;
-            if (uncoveredBlockLength > 0) {
-              uncoveredLineBlocks.push({
-                hit: false,
-                start: firstUncoveredLine,
-                end: firstUncoveredLine + uncoveredBlockLength,
-              });
-              uncoveredBlockLength = 0;
-            }
-            firstUncoveredLine = line.line + 1;
-          } else {
-            if (firstUncoveredLine === 0) {
-              firstUncoveredLine = line.line;
-            }
-            uncoveredBlockLength++;
-          }
-        }
+  private async resolveBaseSha(headSha: string): Promise<string> {
+    if (Config.get(this.name, "dynamic") === "gh") {
+      const baseSha = await this.baseShaFromGithub(headSha);
+      if (baseSha) {
+        Logger.debug(`Got base SHA from PR: ${baseSha}`);
+        return baseSha;
       }
-      for (let _function of coverageData.functions.details) {
-        if (changedLineNumbers.has(_function.line)) {
-          totalFunctions++;
-          if (_function.hit > 0) {
-            coveredFunctions++;
-          }
-          functions.push(_function);
-        }
-      }
-      for (let branch of coverageData.branches.details) {
-        if (changedLineNumbers.has(branch.line)) {
-          totalBranches++;
-          if (branch.taken > 0) {
-            coveredBranches++;
-          }
-          branches.push(branch);
-        }
-      }
-      diffCoverageResult.lines.total += changedLineCount;
-      diffCoverageResult.lines.covered += coveredLines;
-      diffCoverageResult.functions.total += totalFunctions;
-      diffCoverageResult.functions.covered += coveredFunctions;
-      diffCoverageResult.branches.total += totalBranches;
-      diffCoverageResult.branches.covered += coveredBranches;
-      diffCoverageResult.files.push({
-        file: normalizedPath,
-        lines: {
-          total: changedLineCount,
-          covered: coveredLines,
-          percent: (coveredLines / changedLineCount) * 100,
-          details: uncoveredLineBlocks,
-        },
-        functions: {
-          total: totalFunctions,
-          covered: coveredFunctions,
-          percent: (coveredFunctions / totalFunctions) * 100,
-          details: functions,
-        },
-        branches: {
-          total: totalBranches,
-          covered: coveredBranches,
-          percent: (coveredBranches / totalBranches) * 100,
-          details: branches,
-        },
-      });
     }
-    diffCoverageResult.lines.percent =
-      (diffCoverageResult.lines.covered / diffCoverageResult.lines.total) * 100;
-    diffCoverageResult.functions.percent =
-      (diffCoverageResult.functions.covered /
-        diffCoverageResult.functions.total) *
-      100;
-    diffCoverageResult.branches.percent =
-      (diffCoverageResult.branches.covered /
-        diffCoverageResult.branches.total) *
-      100;
 
-    return diffCoverageResult;
+    const baseSha = await git.resolveRef({
+      fs: fs as any,
+      dir: process.cwd(),
+      ref: Config.get(this.name, "base"),
+    });
+    Logger.debug(`Got base SHA from config: ${baseSha}`);
+    return baseSha;
   }
 
-  private async getCoverageReport(file: string) {
-    const lcov = await fs.readFile(file, "utf-8");
-    Logger.debug(`Coverage report loaded from ${file}`);
-    return new Promise((resolve, reject) => {
-      parse(lcov, (err, data) => {
-        if (err) {
-          reject(err);
-        }
-        resolve(data);
+  private async baseShaFromGithub(headSha: string): Promise<string | null> {
+    let token = process.env.GITHUB_TOKEN;
+    if (!token) {
+      const execPromise = promisify(exec);
+      const { stdout } = await execPromise("gh auth token");
+      token = stdout.trim();
+      if (!token) {
+        throw new Error("GITHUB_TOKEN is not set");
+      }
+    }
+
+    const prNumber = process.env.GITHUB_PR_NUMBER;
+    const octokit = new Octokit({ auth: token });
+    const branchName = await git.currentBranch({ fs: fs as any, dir: process.cwd() });
+    const repoUrl = await git.listRemotes({ fs: fs as any, dir: process.cwd() });
+    const [owner, repo] = repoUrl[0].url.replace(/\.git$/, "").split("/").slice(-2);
+
+    let resolved = prNumber;
+    if (!resolved) {
+      const prs = await octokit.rest.search.issuesAndPullRequests({
+        q: `head:${branchName} is:pr is:open`,
       });
-    });
-  }
+      if (prs.data.total_count === 0) {
+        Logger.info(`No open PR found for branch ${branchName}, using default base branch`);
+        return null;
+      }
+      resolved = prs.data.items[0].number;
+    }
 
-  private async getChangedFiles(dir: string, head: string, base: string) {
-    return git.walk({
-      fs,
-      dir,
-      trees: [git.TREE({ ref: head }), git.TREE({ ref: base })],
-      map: async function (filepath, [HEAD, BASE]) {
-        // ignore directories
-        if (filepath === ".") {
-          return;
-        }
-        if (!HEAD) {
-          return;
-        }
-        if (
-          (await HEAD.type()) === "tree" ||
-          (BASE && (await BASE.type())) === "tree"
-        ) {
-          return;
-        }
-
-        // generate ids
-        const Aoid = await HEAD.oid();
-        const Boid = BASE ? await BASE.oid() : undefined;
-
-        // determine modification type
-        let type = "equal";
-        let process = false;
-        if (Aoid !== Boid) {
-          type = "modify";
-          process = true;
-        }
-        if (Aoid === undefined) {
-          type = "remove";
-        }
-        if (Boid === undefined) {
-          type = "add";
-          process = true;
-        }
-
-        if (!process) {
-          return;
-        }
-
-        const headContent = await HEAD.content();
-        let headContentStr = "";
-        if (headContent) {
-          headContentStr = new TextDecoder().decode(headContent);
-        }
-
-        let diff = null;
-        if (type === "modify" && BASE) {
-          const baseContent = await BASE.content();
-          let baseContentStr = "";
-          if (baseContent) {
-            baseContentStr = new TextDecoder().decode(baseContent);
-          }
-          diff = merge(headContentStr, baseContentStr, baseContentStr);
-        } else {
-          diff = {
-            hunks: [
-              {
-                newStart: 1,
-                newLines: headContentStr.split("\n").length,
-              },
-            ],
-          };
-        }
-        return {
-          path: `/${filepath}`,
-          lines: headContentStr.split("\n").length,
-          type: type,
-          diff: diff,
-        };
-      },
-    });
+    const pr = await octokit.rest.pulls.get({ owner, repo, pull_number: resolved });
+    return pr.data.base.sha;
   }
 }
+

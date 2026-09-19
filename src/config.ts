@@ -2,6 +2,7 @@ import fs from "fs";
 import yaml from "js-yaml";
 import Ajv from "ajv";
 import { Logger } from "./utils/logger";
+import { EXIT_CODES } from "./core/exit-codes";
 import schema from "./schema.json";
 export interface ConfigElement {
   help: string;
@@ -26,14 +27,15 @@ class Config {
       Logger.debug(`Loading config from ${configPath}`);
       const yamlConfig: any = yaml.load(fs.readFileSync(configPath, "utf8"));
 
-      const ajv = new Ajv();
+      const ajv = new Ajv({ allErrors: true });
       const validate = ajv.compile(schema);
-      try {
-        let x: any = validate(yamlConfig);
-        Logger.debug(`Config validation: ${JSON.stringify(x)}`);
-      } catch (e) {
-        Logger.error(`Invalid config: ${e}`);
-        process.exit(1);
+
+      // Every validation error is surfaced; invalid config is exit code 2.
+      if (!validate(yamlConfig)) {
+        for (const error of validate.errors ?? []) {
+          Logger.error(`Invalid config: ${error.instancePath} ${error.message}`);
+        }
+        process.exit(EXIT_CODES.INVALID_CONFIG);
       }
 
       this.config = yamlConfig["config"] || {};

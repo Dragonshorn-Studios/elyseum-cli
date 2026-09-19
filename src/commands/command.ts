@@ -6,7 +6,7 @@ import { PrintConfigCommand } from "./print-config-command";
 import { Logger } from "../utils/logger"; // Import the logger
 
 export interface Command {
-  run(args: any): Promise<void>;
+  run(args: any): Promise<number>;
   config?: CustomConfig;
   name: string;
 }

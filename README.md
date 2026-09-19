@@ -1,84 +1,119 @@
 # Elyseum CLI
 
-> **Notice:** This is a work-in-progress personal package. Use at your own risk.
-
-Elyseum CLI is a command-line tool for coverage reporting. It provides various reporters to display coverage information in different formats.
+A command-line coverage engine: total and diff coverage from LCOV reports,
+reporters for terminals, Markdown and GitHub pull requests, and quality gates.
+Part of the [Elyseum](https://github.com/Dragonshorn-Studios/elyseum) suite —
+used directly or through the
+[elyseum-coverage-reporter-action](https://github.com/Dragonshorn-Studios/elyseum-coverage-reporter-action).
 
 ## Installation
 
-You can install the package globally using npm:
+The canonical npm package is `@dragonshorn-studios/elyseum-cli`:
 
 ```bash
-npm install -g @dragonshorn/elyseum-cli
+npm install -g @dragonshorn-studios/elyseum-cli
 ```
 
-## Usage
+Requires Node >= 20.
 
-### Commands
+## Commands
 
-- `diff-coverage`: Calculate coverage for changed files.
-- `coverage`: Calculate coverage for all files.
+### `diff-coverage`
 
-### Options
+Computes coverage for changed lines between two refs (or an explicit changed-file list) and reports it.
 
-- `--reporter.coverage`: Coverage reporter(s), separated by commas. Available reporters: `cli-table`, `github-pr-comment`.
-- `--reporter.coverage.colors`: Use colors in coverage reporter (if supported).
-- `--reporter.coverage.details`: Show coverage details.
-- `--reporter.coverage.quality-gate`: Coverage quality gate.
+| Option | Default | Description |
+| --- | --- | --- |
+| `--diff-coverage.base` | `origin/main` (or `origin/$GITHUB_BASE_REF`) | Base branch/SHA |
+| `--diff-coverage.head` | `HEAD` (or `$GITHUB_SHA`) | Head branch/SHA |
+| `--diff-coverage.dynamic` | | Set to `gh` to resolve the base SHA from the GitHub pull request |
+| `--diff-coverage.changed-files` | | Comma-separated file list; skips git entirely |
+| `--diff-coverage.lcov-path` | `coverage/lcov.info` | LCOV report location |
 
-### Examples
+### `coverage`
 
-#### Calculate Coverage for Changed Files
+Aggregated coverage over the whole report.
 
-```bash
-elyseum-cli diff-coverage --head <HEAD_COMMIT> --base <BASE_COMMIT>
-```
+| Option | Default | Description |
+| --- | --- | --- |
+| `--coverage.lcov-path` | `coverage/lcov.info` | LCOV report location |
 
-#### Calculate Coverage for All Files
+### Reporters
 
-```bash
-elyseum-cli coverage
-```
+- `--reporter.coverage cli-table,markdown-table,github-pr-comment` (comma separated)
+- `--reporter.coverage.details` — per-file breakdown
+- `--reporter.coverage.quality-gate <n>` — changed-line coverage below `n` warns
+- `--reporter.coverage.quality-gate-fail <n>` — coverage at or below `n` fails the command (exit 1)
 
-#### Use Multiple Reporters
+## Configuration (`.elyseum.yml`)
 
-```bash
-elyseum-cli diff-coverage --reporter.coverage=cli-table,github-pr-comment
-```
-
-#### Use Colors in Coverage Reporter
-
-```bash
-elyseum-cli diff-coverage --reporter.coverage.colors
-```
-
-#### Show Coverage Details
-
-```bash
-elyseum-cli diff-coverage --reporter.coverage.details
-```
-
-#### Set Coverage Quality Gate
-
-```bash
-elyseum-cli diff-coverage --reporter.coverage.quality-gate=80
-```
-
-## Configuration
-
-You can also configure the CLI using a `.elyseum.yml` file. Here is an example configuration:
+CLI arguments take precedence over the environment block, which takes
+precedence over the default block. Keys use the same names as the CLI
+options (nested with dots flattened):
 
 ```yaml
-reporter:
+default-environment: auto
+
+config:
   coverage:
-    cli-table:
-      color: true
-      diff: true
-    github-pr-comment:
-      file: "github.pr.coverage.md"
-qualityGate: 80
+    lcov-path: coverage/lcov.info
+  diff-coverage:
+    base: origin/main
+
+environments:
+  github:
+    reporter:
+      coverage:
+        quality-gate: 80
+        quality-gate-fail: 50
+  local: {}
 ```
 
-## License
+Validation is strict: an invalid `.elyseum.yml` lists every schema violation
+and exits with code 2.
 
-This project is licensed under the MIT License.
+## Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| 0 | Success |
+| 1 | A configured quality gate failed |
+| 2 | Invalid configuration |
+| 3 | No git repository found (and no explicit changed-file list) |
+| 4 | LCOV report not found |
+| 5 | Any other calculation or runtime error |
+
+## Behavior notes
+
+- Percentages are always finite: a metric with zero eligible items (zero
+  changed lines, zero coverable lines, zero branches) reports 100%, never NaN.
+- Only added lines (`+`) count as changed; removed lines, context lines, and
+  comment-only/blank additions are excluded.
+- File paths are compared with leading slashes stripped.
+- Supported Node versions: >= 20 (CI tests Node 20 and 22).
+
+## Development
+
+```bash
+npm install
+npm run build     # rollup bundle into dist/
+npm test          # vitest unit + integration suites
+npm run pack:smoke  # npm pack + run the packed binary
+npm run ci        # build + test + pack smoke
+```
+
+Integration tests run the built CLI against a real fixture git repository and
+LCOV files; the pack smoke test verifies the published tarball contains the
+executable with its shebang.
+
+## Repository roles
+
+| Repository | Role |
+| --- | --- |
+| [elyseum] | Host: users/projects/authz, ingest API, CI history UI. Source of truth for the versioned CI result envelope. |
+| [elyseum-cli] (this repo) | Producer CLI: reads local CI artifacts and emits the versioned envelope. |
+| [elyseum-coverage-reporter-action] | Thin GitHub Action wrapping this CLI; optional upload to Elyseum. |
+
+[elyseum]: https://github.com/Dragonshorn-Studios/elyseum
+[elyseum-cli]: https://github.com/Dragonshorn-Studios/elyseum-cli
+[elyseum-coverage-reporter-action]: https://github.com/Dragonshorn-Studios/elyseum-coverage-reporter-action
