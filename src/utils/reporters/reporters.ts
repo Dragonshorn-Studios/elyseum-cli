@@ -14,7 +14,7 @@ export function getCoverageReportersFromArgs(args: any): CoverageReporter[] {
     if (reporter in COVERAGE_REPORTERS) {
       return COVERAGE_REPORTERS[reporter as keyof typeof COVERAGE_REPORTERS];
     }
-    console.error(`Unknown coverage reporter: ${reporter}`);
-    process.exit(1);
+    // Unreachable in practice: argparse validates the list before this runs.
+    throw new Error(`Unknown coverage reporter: ${reporter}`);
   });
 }
