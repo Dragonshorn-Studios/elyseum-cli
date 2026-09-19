@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile, mkdir, cp } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
@@ -12,7 +12,6 @@ const tmp = await mkdtemp(path.join(tmpdir(), "elyseum-pack-"));
 
 try {
   execFileSync("npm", ["pack", "--pack-destination", tmp], { stdio: "inherit" });
-  const files = await readFile(path.join(tmp, ".."), "utf-8").catch(() => "");
   const tgz = (await import("node:fs")).readdirSync(tmp).find((f) => f.endsWith(".tgz"));
   if (!tgz) {
     throw new Error("npm pack produced no tarball");

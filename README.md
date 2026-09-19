@@ -47,8 +47,8 @@ Aggregated coverage over the whole report.
 
 ## Configuration (`.elyseum.yml`)
 
-CLI arguments take precedence over the environment block, which takes
-precedence over the default block. Keys use the same names as the CLI
+Precedence: CLI arguments (when explicitly given) beat the environment
+block, which beats the default block. Keys use the same names as the CLI
 options (nested with dots flattened):
 
 ```yaml
@@ -69,8 +69,9 @@ environments:
   local: {}
 ```
 
-Validation is strict: an invalid `.elyseum.yml` lists every schema violation
-and exits with code 2.
+Validation lists every schema violation and exits with code 2. Note that a
+changed-file list given without a diff counts **every** coverable line of
+the listed file as changed — gates are therefore stricter in that mode.
 
 ## Exit codes
 

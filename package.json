@@ -41,9 +41,7 @@
     "lcov-parse": "^1.0.0",
     "minimatch": "^10.0.1",
     "octokit": "^4.1.2",
-    "ora": "^8.2.0",
-    "tslib": "^2.8.1",
-    "winston": "^3.17.0"
+    "tslib": "^2.8.1"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^21.0.1",

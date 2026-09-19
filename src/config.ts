@@ -31,7 +31,8 @@ class Config {
       const validate = ajv.compile(schema);
 
       // Every validation error is surfaced; invalid config is exit code 2.
-      if (!validate(yamlConfig)) {
+      const valid: boolean = validate(yamlConfig);
+      if (!valid) {
         for (const error of validate.errors ?? []) {
           Logger.error(`Invalid config: ${error.instancePath} ${error.message}`);
         }
@@ -100,7 +101,9 @@ class Config {
   }
 
   private isSet(argName: string) {
-    return process.argv.includes(`--${argName}`);
+    // Args arrive with underscore dests (coverage_lcov_path); the flag a
+    // user types is the dotted form (--coverage.lcov-path).
+    return process.argv.includes(`--${argName.replace(/_/g, ".")}`);
   }
 
   public static getInstance(args: any = {}): Config {
