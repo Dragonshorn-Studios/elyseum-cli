@@ -39,9 +39,9 @@ afterAll(async () => {
   await rm(workdir, { recursive: true, force: true });
 });
 
-function run(args: string[], cwd: string): { code: number; out: string } {
+function run(args: string[], cwd: string): { code: number; out: string; err: string } {
   const result = spawnSync(process.execPath, [CLI, ...args], { cwd, encoding: "utf-8" });
-  return { code: result.status ?? 1, out: `${result.stdout ?? ""}${result.stderr ?? ""}` };
+  return { code: result.status ?? 1, out: result.stdout ?? "", err: result.stderr ?? "" };
 }
 
 describe("packed/built CLI integration", () => {
@@ -81,7 +81,7 @@ describe("packed/built CLI integration", () => {
   it("exits 3 with an actionable message when git is missing", () => {
     const result = run(["diff-coverage", "--coverage.lcov-path", "coverage/lcov.info"], workdir);
     expect(result.code).toBe(3);
-    expect(result.out).toContain("git repository");
+    expect(result.err).toContain("git repository");
   });
 
   it("exits 4 with an actionable message when the LCOV report is missing", () => {
@@ -94,7 +94,7 @@ describe("packed/built CLI integration", () => {
       workdir,
     );
     expect(result.code).toBe(4);
-    expect(result.out).toContain("LCOV report not found");
+    expect(result.err).toContain("LCOV report not found");
   });
 
   it("lets an explicit CLI flag beat a config-defined lcov path", async () => {
@@ -147,7 +147,7 @@ describe("packed/built CLI integration", () => {
     expect(written.length).toBeGreaterThan(0);
     const result = run(["coverage", "--coverage.lcov-path", "coverage/lcov.info"], bad);
     expect(result.code, result.out).toBe(2);
-    expect(result.out).toContain("Invalid config");
+    expect(result.err).toContain("Invalid config");
     await rm(bad, { recursive: true, force: true });
   });
 
@@ -160,7 +160,7 @@ describe("packed/built CLI integration", () => {
 
     const result = run(["coverage"], bad);
     expect(result.code, result.out).toBe(2);
-    expect(result.out).toContain("Invalid config");
+    expect(result.err).toContain("Invalid config");
     await rm(bad, { recursive: true, force: true });
   });
 
@@ -186,7 +186,7 @@ describe("packed/built CLI integration", () => {
   it("exits 4 from the coverage command when the report is missing", () => {
     const result = run(["coverage", "--coverage.lcov-path", "nope/lcov.info"], workdir);
     expect(result.code).toBe(4);
-    expect(result.out).toContain("LCOV report not found");
+    expect(result.err).toContain("LCOV report not found");
   });
 
   it("warns (exit 0) when changed-line coverage is below the gate but above fail", async () => {
@@ -207,7 +207,7 @@ describe("packed/built CLI integration", () => {
 
     // 2/3 changed-line coverage: below the 90 gate, no fail threshold set.
     expect(result.code, result.out).toBe(0);
-    expect(result.out).toContain("Quality gate warning");
+    expect(result.err).toContain("Quality gate warning");
     await rm(dir, { recursive: true, force: true });
   });
 
