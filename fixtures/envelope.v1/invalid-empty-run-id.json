@@ -1,0 +1,20 @@
+{
+    "schema_version": "1",
+    "producer": {
+        "name": "elyseum-cli",
+        "version": "1.0.0"
+    },
+    "run": {
+        "provider": "github",
+        "run_id": "",
+        "attempt": 1
+    },
+    "commit": {
+        "sha": "9f2c7a1b8e4d5f6a7b8c9d0e1f2a3b4c5d6e7f80",
+        "branch": "main"
+    },
+    "tests": {
+        "total": 1
+    },
+    "coverage": {}
+}

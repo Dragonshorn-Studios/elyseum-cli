@@ -1,0 +1,130 @@
+import { spawnSync } from "node:child_process";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import Ajv2020 from "ajv/dist/2020";
+import fs from "fs/promises";
+import { readFileSync } from "node:fs";
+import git from "isomorphic-git";
+
+const CLI = path.resolve(__dirname, "../../dist/index.js");
+
+const schema = JSON.parse(
+  readFileSync(path.resolve(__dirname, "../../schemas/envelope.v1.json"), "utf-8"),
+);
+const ajv = new Ajv2020({ allErrors: true, strict: false });
+ajv.addFormat("date-time", true);
+const validateSchema = ajv.compile(schema);
+
+const LCOV = `
+TN:
+SF:src/app.ts
+DA:1,1
+DA:2,0
+LF:2
+LH:1
+end_of_record
+`;
+
+let repo: string;
+let headSha: string;
+
+beforeAll(async () => {
+  repo = await mkdtemp(path.join(tmpdir(), "elyseum-emit-"));
+  await mkdir(path.join(repo, "src"), { recursive: true });
+  await writeFile(path.join(repo, "src", "app.ts"), "const a = 1;\nconst b = 2;\n");
+  await git.init({ fs, dir: repo });
+  await git.add({ fs, dir: repo, filepath: "src/app.ts" });
+  headSha = await git.commit({
+    fs,
+    dir: repo,
+    message: "seed",
+    author: { name: "t", email: "t@example.com" },
+  });
+  await mkdir(path.join(repo, "coverage"), { recursive: true });
+  await writeFile(path.join(repo, "coverage", "lcov.info"), LCOV);
+});
+
+afterAll(async () => {
+  await rm(repo, { recursive: true, force: true });
+});
+
+
+function run(args: string[]) {
+  const result = spawnSync(process.execPath, [CLI, ...args], { cwd: repo, encoding: "utf-8" });
+  return { code: result.status ?? 1, out: result.stdout ?? "", err: result.stderr ?? "" };
+}
+
+function parseEnvelope(out: string): any {
+  // The envelope is the last pretty-printed JSON object on stdout; DEBUG
+  // lines (also stdout) contain their own single-line JSON.
+  // The envelope root is the last "{" at line start; nested braces are
+  // preceded by spaces.
+  const start = out.lastIndexOf("\n{");
+  const end = out.lastIndexOf("}") + 1;
+  return JSON.parse(out.slice(start, end));
+}
+
+describe("emit-envelope", () => {
+  it("emits a schema-valid envelope from coverage and git facts", () => {
+    const result = run(["emit-envelope"]);
+    expect(result.code, result.out).toBe(0);
+
+    const envelope = parseEnvelope(result.out);
+    expect(validateSchema(envelope)).toBe(true);
+    expect(envelope.commit.sha).toBe(headSha);
+    expect(envelope.run.provider).toBe("generic");
+    // generic-CI fallback: run_id is the HEAD sha, attempt 1
+    expect(envelope.run.run_id).toBe(headSha);
+    expect(envelope.run.attempt).toBe(1);
+  });
+
+  it("includes the tests section when test facts are provided", () => {
+    const result = run([
+      "emit-envelope",
+      "--emit-envelope.tests-total", "42",
+      "--emit-envelope.tests-passed", "40",
+      "--emit-envelope.tests-failed", "2",
+    ]);
+    expect(result.code, result.out).toBe(0);
+
+    const envelope = parseEnvelope(result.out);
+    expect(validateSchema(envelope)).toBe(true);
+    expect(envelope.tests.total).toBe(42);
+    expect(envelope.tests.failed).toBe(2);
+  });
+
+  it("honors explicit run identity options", () => {
+    const result = run([
+      "emit-envelope",
+      "--emit-envelope.run-provider", "github",
+      "--emit-envelope.run-id", "1234567890",
+      "--emit-envelope.run-job-id", "987",
+      "--emit-envelope.run-attempt", "2",
+      "--emit-envelope.quality-gate-conclusion", "failed",
+    ]);
+    expect(result.code, result.out).toBe(0);
+
+    const envelope = parseEnvelope(result.out);
+    expect(validateSchema(envelope)).toBe(true);
+    expect(envelope.run.provider).toBe("github");
+    expect(envelope.run.run_id).toBe("1234567890");
+    expect(envelope.run.attempt).toBe(2);
+    expect(envelope.quality_gate.conclusion).toBe("failed");
+  });
+
+  it("writes the envelope to a file with --emit-envelope.out", async () => {
+    const out = path.join(repo, "envelope.json");
+    const result = run(["emit-envelope", "--emit-envelope.out", "envelope.json"]);
+    expect(result.code, result.out).toBe(0);
+
+    const envelope = JSON.parse(await fs.readFile(out, "utf-8"));
+    expect(validateSchema(envelope)).toBe(true);
+  });
+
+  it("exits 4 when the LCOV report is missing", () => {
+    const result = run(["emit-envelope", "--emit-envelope.lcov-path", "nope.info"]);
+    expect(result.code).toBe(4);
+  });
+});
