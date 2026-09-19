@@ -74,7 +74,7 @@ describe("packed/built CLI integration", () => {
       workdir,
     );
 
-    // changed-line coverage for src/app.ts is 2/3 (comment line excluded)
+    // changed-line coverage for src/app.ts is 2/3 (lines 1 and 3 covered)
     expect(result.code).toBe(1);
   });
 

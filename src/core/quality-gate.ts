@@ -1,9 +1,11 @@
 export type QualityGateOutcome = "passed" | "warning" | "failed";
 
 export interface QualityGateThresholds {
-  /** Below this, the gate fails. Undefined disables the gate. */
+  /** Warn band ceiling: percent < gate warns; percent >= gate passes.
+   *  Undefined means no warn band. */
   gate?: number;
-  /** Between fail and gate (inclusive), the gate warns. */
+  /** Fail ceiling, inclusive: percent <= fail fails. Undefined disables
+   *  the fail path (the gate alone can only warn). */
   fail?: number;
 }
 
