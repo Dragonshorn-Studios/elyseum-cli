@@ -25,7 +25,17 @@ class Config {
     const configPath = ".elyseum.yml";
     if (fs.existsSync(configPath)) {
       Logger.debug(`Loading config from ${configPath}`);
-      const yamlConfig: any = yaml.load(fs.readFileSync(configPath, "utf8"));
+
+      let parsed: any;
+      try {
+        parsed = yaml.load(fs.readFileSync(configPath, "utf8"));
+      } catch (e: any) {
+        Logger.error(`Invalid config: cannot parse ${configPath}: ${e.message}`);
+        process.exit(EXIT_CODES.INVALID_CONFIG);
+      }
+
+      // An empty file parses to undefined and simply means "no config".
+      const yamlConfig: any = parsed ?? {};
 
       const ajv = new Ajv({ allErrors: true });
       const validate = ajv.compile(schema);
@@ -88,9 +98,12 @@ class Config {
       if (lastKey === undefined) {
         continue;
       }
-      // merge the config if args key is not default arg value
+      // Merge the config if the args key is not a default arg value.
+      // A CLI value never clobbers an object subtree: passing
+      // --reporter.coverage a,b must not discard sibling gates configured
+      // under reporter.coverage.
       if (config[lastKey] !== undefined) {
-        if (this.isSet(key)) {
+        if (this.isSet(key) && !this.isObject(config[lastKey])) {
           config[lastKey] = args[key];
         }
       } else {
@@ -105,6 +118,10 @@ class Config {
     // user types is the dotted form (--coverage.lcov-path).
     const flag = `--${argName.replace(/_/g, ".")}`;
     return process.argv.some((a) => a === flag || a.startsWith(`${flag}=`));
+  }
+
+  private isObject(value: any): boolean {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
   }
 
   public static getInstance(args: any = {}): Config {
@@ -163,8 +180,14 @@ class Config {
     const environments = ["auto"];
     const configPath = ".elyseum.yml";
     if (fs.existsSync(configPath)) {
-      const yamlConfig: any = yaml.load(fs.readFileSync(configPath, "utf8"));
-      if (yamlConfig["environments"]) {
+      let yamlConfig: any;
+      try {
+        yamlConfig = yaml.load(fs.readFileSync(configPath, "utf8")) ?? {};
+      } catch (e: any) {
+        Logger.error(`Invalid config: cannot parse ${configPath}: ${e.message}`);
+        process.exit(EXIT_CODES.INVALID_CONFIG);
+      }
+      if (yamlConfig && yamlConfig["environments"]) {
         for (const env of Object.keys(yamlConfig["environments"])) {
           environments.push(env);
         }

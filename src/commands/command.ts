@@ -25,13 +25,8 @@ export class CommandFactory {
   }
 
   getCommand(args: any): Command | undefined {
-    try {
-      Logger.debug(`Fetching command: ${args.command}`); // Add debug log
-      return this.commands[args.command];
-    } catch (error: any) {
-      Logger.error(`Error fetching command: ${error.message}`); // Add error log
-      return undefined;
-    }
+    Logger.debug(`Fetching command: ${args.command}`);
+    return this.commands[args.command];
   }
 
   getAvailableCommands() {

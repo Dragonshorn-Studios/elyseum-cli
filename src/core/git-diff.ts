@@ -115,9 +115,9 @@ export function calculateDiffCoverage(
     branches: { total: 0, covered: 0, percent: 100 },
     files: [] as {
       file: string;
-      lines: { total: number; covered: number; percent: number };
-      functions: { total: number; covered: number; percent: number };
-      branches: { total: number; covered: number; percent: number };
+      lines: { total: number; covered: number; percent: number; details?: unknown };
+      functions: { total: number; covered: number; percent: number; details?: unknown };
+      branches: { total: number; covered: number; percent: number; details?: unknown };
     }[],
   };
 
@@ -150,17 +150,51 @@ export function calculateDiffCoverage(
     let totalBranches = 0;
     let coveredBranches = 0;
 
+    const uncoveredLineBlocks: { hit: boolean; start: number; end: number }[] = [];
+    const changedFunctions: unknown[] = [];
+    const changedBranches: unknown[] = [];
+
+    let firstUncoveredLine = 0;
+    let uncoveredBlockLength = 0;
+
     for (const detail of coverageData.lines.details) {
-      if (changedLines.has(detail.line) && detail.hit > 0) {
+      if (!changedLines.has(detail.line)) {
+        continue;
+      }
+      if (detail.hit > 0) {
         coveredLines++;
+        if (uncoveredBlockLength > 0) {
+          uncoveredLineBlocks.push({
+            hit: false,
+            start: firstUncoveredLine,
+            end: firstUncoveredLine + uncoveredBlockLength,
+          });
+          uncoveredBlockLength = 0;
+        }
+        firstUncoveredLine = detail.line + 1;
+      } else {
+        if (firstUncoveredLine === 0) {
+          firstUncoveredLine = detail.line;
+        }
+        uncoveredBlockLength++;
       }
     }
+
+    if (uncoveredBlockLength > 0) {
+      uncoveredLineBlocks.push({
+        hit: false,
+        start: firstUncoveredLine,
+        end: firstUncoveredLine + uncoveredBlockLength,
+      });
+    }
+
     for (const fn of coverageData.functions.details) {
       if (changedLines.has(fn.line)) {
         totalFunctions++;
         if (fn.hit > 0) {
           coveredFunctions++;
         }
+        changedFunctions.push(fn);
       }
     }
     for (const branch of coverageData.branches.details) {
@@ -169,6 +203,7 @@ export function calculateDiffCoverage(
         if (branch.taken > 0) {
           coveredBranches++;
         }
+        changedBranches.push(branch);
       }
     }
 
@@ -185,16 +220,19 @@ export function calculateDiffCoverage(
         total: changedLines.size,
         covered: coveredLines,
         percent: percent(coveredLines, changedLines.size),
+        details: uncoveredLineBlocks,
       },
       functions: {
         total: totalFunctions,
         covered: coveredFunctions,
         percent: percent(coveredFunctions, totalFunctions),
+        details: changedFunctions,
       },
       branches: {
         total: totalBranches,
         covered: coveredBranches,
         percent: percent(coveredBranches, totalBranches),
+        details: changedBranches,
       },
     });
   }

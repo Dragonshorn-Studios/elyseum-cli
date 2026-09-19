@@ -142,6 +142,12 @@ export class DiffCoverageCommand implements Command {
         return EXIT_CODES.QUALITY_GATE_FAILED;
       }
 
+      if (gate === "warning") {
+        Logger.warn(
+          `Quality gate warning: changed-line coverage ${diffCoverage.lines.percent.toFixed(2)}% is below the gate.`,
+        );
+      }
+
       return EXIT_CODES.SUCCESS;
     } catch (error: any) {
       Logger.error(`Error running diff-coverage command: ${error.message}`);
