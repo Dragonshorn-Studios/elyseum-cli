@@ -50,12 +50,3 @@ export class CalculationFailure extends CliError {
   }
 }
 
-export class CalculationError extends CliError {
-  readonly exitCode = EXIT_CODES.CALCULATION_ERROR;
-  readonly actionable: string;
-
-  constructor(message: string) {
-    super(message);
-    this.actionable = message;
-  }
-}

@@ -103,7 +103,8 @@ class Config {
   private isSet(argName: string) {
     // Args arrive with underscore dests (coverage_lcov_path); the flag a
     // user types is the dotted form (--coverage.lcov-path).
-    return process.argv.includes(`--${argName.replace(/_/g, ".")}`);
+    const flag = `--${argName.replace(/_/g, ".")}`;
+    return process.argv.some((a) => a === flag || a.startsWith(`${flag}=`));
   }
 
   public static getInstance(args: any = {}): Config {

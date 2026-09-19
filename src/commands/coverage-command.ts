@@ -1,5 +1,4 @@
-import fs from "fs/promises";
-import { CliError, MissingLcovError } from "../core/errors";
+import { CliError } from "../core/errors";
 import { LcovRecord, calculateTotalCoverage, readLcovReport } from "../core/lcov";
 import { Command, CommandMap } from "./command";
 import Config, { CustomConfig } from "../config";
