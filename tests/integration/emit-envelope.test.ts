@@ -52,8 +52,8 @@ afterAll(async () => {
 });
 
 
-function run(args: string[]) {
-  const result = spawnSync(process.execPath, [CLI, ...args], { cwd: repo, encoding: "utf-8" });
+function run(args: string[], cwd: string = repo) {
+  const result = spawnSync(process.execPath, [CLI, ...args], { cwd, encoding: "utf-8" });
   return { code: result.status ?? 1, out: result.stdout ?? "", err: result.stderr ?? "" };
 }
 
@@ -128,6 +128,45 @@ describe("emit-envelope", () => {
       throw new Error(`exit=${result.code} stdout=${JSON.stringify(result.out.slice(0, 200))} stderr=${JSON.stringify(result.err.slice(0, 900))}`);
     }
     expect(result.code).toBe(4);
+  });
+
+  it("emits null coverage (never fabricated) for an empty go coverprofile", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "elyseum-nullcov-"));
+    await mkdir(path.join(dir, "coverage"), { recursive: true });
+    await writeFile(path.join(dir, "coverage", "empty.cov"), "mode: set\n");
+    await git.init({ fs, dir });
+    await writeFile(path.join(dir, "seed.txt"), "seed");
+    await git.add({ fs, dir, filepath: "seed.txt" });
+    await git.commit({ fs, dir, message: "seed", author: { name: "t", email: "t@example.com" } });
+
+    const result = run([
+      "emit-envelope",
+      "--emit-envelope.coverage-format", "go-coverprofile",
+      "--emit-envelope.coverage-input", "coverage/empty.cov",
+    ], dir);
+    expect(result.code, `out=${result.out} err=${result.err}`).toBe(0);
+
+    const envelope = JSON.parse(result.out);
+    expect(envelope.coverage.line_percent).toBeNull();
+    expect(envelope.coverage.function_percent).toBeNull();
+    expect(envelope.coverage.branch_percent).toBeNull();
+  });
+
+  it("exits 4 for a missing lcov path configured via .elyseum.yml", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "elyseum-cfglcov-"));
+    await mkdir(path.join(dir, "reports"), { recursive: true });
+    await writeFile(path.join(dir, "seed.txt"), "seed");
+    await writeFile(
+      path.join(dir, ".elyseum.yml"),
+      "config:\n  coverage:\n    lcov-path: reports/missing-lcov.info\n",
+    );
+    await git.init({ fs, dir });
+    await git.add({ fs, dir, filepath: "seed.txt" });
+    await git.commit({ fs, dir, message: "seed", author: { name: "t", email: "t@example.com" } });
+
+    const result = run(["emit-envelope"], dir);
+    expect(result.code, result.err).toBe(4);
+    expect(result.err).toContain("LCOV report not found");
   });
 
   it("exits 2 when a quality-gate conclusion override is invalid", () => {

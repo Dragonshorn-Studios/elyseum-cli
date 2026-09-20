@@ -42,10 +42,13 @@ export class EmitEnvelopeCommand implements Command {
   name: string = "emit-envelope";
   config?: CustomConfig = {
     "lcov-path": {
+      // No declared default: resolution order is this option, then the
+      // shared coverage.lcov-path, then the built-in
+      // coverage/lcov.info (see run()).
       help: "Path to the LCOV report",
       type: "str",
       required: false,
-      default: "coverage/lcov.info",
+      default: null,
     },
     out: {
       help: "Write the envelope to this file instead of stdout",
@@ -137,11 +140,18 @@ export class EmitEnvelopeCommand implements Command {
         "coverage/lcov.info",
       ) as string;
 
+      const testsFacts = (await this.collectTestsFacts()) ?? this.testsFromFlags();
+
       let coverageRecords: any[] = [];
       let coverageAvailable = true;
-      const lcovExplicit = process.argv.some(
-        (a) => a === "--emit-envelope.lcov-path" || a.startsWith("--emit-envelope.lcov-path="),
-      );
+      // Explicit = the CLI flag, or a config-file path that differs from the
+      // declared default (an explicitly configured missing report is a user
+      // error, not silent no-coverage).
+      const lcovExplicit =
+        process.argv.some(
+          (a) =>
+            a === "--emit-envelope.lcov-path" || a.startsWith("--emit-envelope.lcov-path="),
+        ) || lcovPath !== "coverage/lcov.info";
       // Config.get yields null (its default) for absent keys; null means
       // "not given", never a value.
       const coverageFormatRaw = Config.getInstance().get("emit-envelope.coverage-format");
@@ -150,11 +160,12 @@ export class EmitEnvelopeCommand implements Command {
 
       if (!adapterCoverage) {
         try {
-              coverageRecords = await readLcovReport(lcovPath);
-            } catch (error) {
-              // But a MISSING report at an explicitly given path is a user error
-          // (exit 4); only the silent default path degrades to no coverage.
-          if (error instanceof MissingLcovError && lcovExplicit) {
+          coverageRecords = await readLcovReport(lcovPath);
+        } catch (error) {
+          // A missing report at the silent default path degrades to a
+          // tests-only envelope — but only when tests facts exist; without
+          // them the missing LCOV is the actionable failure (exit 4).
+          if (error instanceof MissingLcovError && (lcovExplicit || !testsFacts)) {
             throw error;
           }
           if (error instanceof MissingLcovError) {
@@ -195,7 +206,6 @@ export class EmitEnvelopeCommand implements Command {
         ? { conclusion: gateConclusionRaw as "passed" | "failed" | "unknown" }
         : undefined;
 
-      const testsFacts = (await this.collectTestsFacts()) ?? this.testsFromFlags();
       const coverageFacts = await this.collectCoverageFacts(
         coverageRecords,
         totals,
@@ -250,7 +260,10 @@ export class EmitEnvelopeCommand implements Command {
         ...(coverageFacts
           ? {
               coverage: {
-                line_percent: this.r4(coverageFacts.line_percent ?? coveragePercent),
+                line_percent:
+                  coverageFacts.line_percent === null || coverageFacts.line_percent === undefined
+                    ? null
+                    : this.r4(coverageFacts.line_percent),
                 function_percent:
                   coverageFacts.function_percent === null
                     ? null

@@ -90,7 +90,7 @@ export function boundMessage(message: string | null): string | null {
 
 /** Bounds a file path to the documented length. */
 export function boundPath(path: string): string {
-  return path.length > BOUNDS.failed_test_file
-    ? `${path.slice(0, BOUNDS.failed_test_file - 1)}…`
+  return path.length > BOUNDS.coverage_path
+    ? `${path.slice(0, BOUNDS.coverage_path - 1)}…`
     : path;
 }

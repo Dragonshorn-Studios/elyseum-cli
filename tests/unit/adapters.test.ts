@@ -122,6 +122,13 @@ describe("go-coverprofile adapter", () => {
     expect(facts.files).toHaveLength(0);
     expect(facts.line_percent).toBeNull();
   });
+
+  it("bounds long coverage paths to 1024 characters", async () => {
+    const { boundPath } = await import("../../src/adapters/types");
+    const longPath = "src/" + "d".repeat(1100) + "/file.ts";
+    expect(boundPath(longPath).length).toBe(1024);
+    expect(boundPath("src/short.ts")).toBe("src/short.ts");
+  });
 });
 
 describe("lcov coverage parser (registry)", () => {
