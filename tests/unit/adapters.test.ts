@@ -52,6 +52,33 @@ describe("junit adapter (Pest/PHPUnit)", () => {
     expect(facts.passed).toBe(0);
   });
 
+  it("flattens nested suites and preserves the error distinction in messages", () => {
+    const nested = `<?xml version="1.0"?>
+<testsuites>
+  <testsuite:skip xmlns:x="y"/>
+</testsuites>`;
+    const doc = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="Group" tests="3" failures="0" errors="1" skipped="1" time="0.4">
+    <testsuite name="Sub" tests="3" failures="0" errors="1" skipped="1" time="0.4">
+      <testcase name="test_error" classname="Sub\CrashTest" time="0.2">
+        <error type="TypeError">Call to undefined method foo()</error>
+      </testcase>
+      <testcase name="test_skipped" classname="Sub\EnvTest" time="0.0">
+        <skipped/>
+      </testcase>
+      <testcase name="test_ok" classname="Sub\OkTest" time="0.2"/>
+    </testsuite>
+  </testsuite>
+</testsuites>`;
+    const facts = parseJunitXml(doc || nested);
+    expect(facts.total).toBe(3);
+    expect(facts.failed).toBe(1);
+    expect(facts.skipped).toBe(1);
+    expect(facts.passed).toBe(1);
+    expect(facts.failed_tests[0].message).toContain("Call to undefined method foo()");
+  });
+
   it("fails on malformed XML", () => {
     expect(() => parseJunitXml(fixture("junit", "malformed.xml"))).toThrow(/testsuite/);
   });

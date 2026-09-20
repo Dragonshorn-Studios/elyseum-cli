@@ -22,14 +22,31 @@ export function parseJunitXml(raw: string): TestFacts {
       attributeNamePrefix: "@_",
       parseAttributeValue: true,
       isArray: (name) => name === "testcase" || name === "testsuite",
+      // nested <testsuite> elements (PHPUnit --log-junit with --order-by
+      // groups) are collected recursively below
     });
     doc = parser.parse(raw);
   } catch (error: any) {
     throw new CalculationFailure(`Tests input is not valid JUnit XML: ${error.message}`);
   }
 
-  const suites = doc?.testsuites?.testsuite ?? doc?.testsuite;
-  const suiteList: any[] = Array.isArray(suites) ? suites : suites ? [suites] : [];
+  const suiteList: any[] = [];
+
+  // <testsuite> elements may nest (grouped runs); every suite's testcases
+  // and time count toward the totals.
+  const collectSuites = (node: any): void => {
+    const suites = node?.testsuites?.testsuite ?? node?.testsuite;
+    const list: any[] = Array.isArray(suites) ? suites : suites ? [suites] : [];
+    for (const suite of list) {
+      if (typeof suite !== "object" || suite === null) {
+        continue;
+      }
+      suiteList.push(suite);
+      collectSuites(suite);
+    }
+  };
+
+  collectSuites(doc);
 
   // fast-xml-parser is lenient: a truncated document can parse into string
   // stubs, so structural validity is checked here.
