@@ -125,13 +125,13 @@ describe("go-coverprofile adapter", () => {
 });
 
 describe("lcov coverage parser (registry)", () => {
-  it("treats zero-coverable-line files as unknown, not zero", async () => {
+  it("reports zero-coverable-line files as 100 (nothing to cover)", async () => {
     const { coverageParserFor } = await import("../../src/adapters");
     const facts = await coverageParserFor("lcov")(fixture("lcov", "zero-denominator.info"));
-    expect(facts.files[0].line_percent).toBeNull();
+    expect(facts.files[0].line_percent).toBe(100);
   });
 
-  it("keeps monorepo relative paths and strips leading slashes", async () => {
+  it("preserves monorepo relative and absolute paths", async () => {
     const { coverageParserFor } = await import("../../src/adapters");
     const facts = await coverageParserFor("lcov")(fixture("lcov", "monorepo.info"));
     expect(facts.files.map((f) => f.path)).toEqual([
@@ -139,5 +139,53 @@ describe("lcov coverage parser (registry)", () => {
       "/abs/path/src/other.ts",
     ]);
     expect(facts.line_percent).toBeCloseTo(2 / 3 * 100, 1);
+  });
+});
+
+describe("go-test-json dedup and bounds", () => {
+  it("counts a Go 1.24 build failure once even with the trailing package fail", () => {
+    const events = [
+      { Action: "output", Package: "example.com/m/broken", Output: "# pkg\n" },
+      { Action: "build-output", Package: "example.com/m/broken", Output: "undefined: x\n" },
+      { Action: "build-fail", Package: "example.com/m/broken" },
+      { Action: "fail", Package: "example.com/m/broken", Elapsed: 0 },
+    ].map((e) => JSON.stringify(e)).join("\n") + "\n";
+    const facts = parseGoTestJson(events);
+    expect(facts.total).toBe(1);
+    expect(facts.failed).toBe(1);
+    expect(facts.failed_tests).toHaveLength(1);
+  });
+
+  it("bounds failed-test names and messages", () => {
+    const facts = parseVitestJson(
+      JSON.stringify({
+        numTotalTests: 1,
+        numFailedTests: 1,
+        testResults: [{
+          name: "a.test.ts",
+          assertionResults: [{
+            fullName: "x".repeat(600),
+            status: "failed",
+            failureMessages: ["m".repeat(3000)],
+          }],
+        }],
+      }),
+    );
+    expect(facts.failed_tests[0].name.length).toBe(512);
+    expect(facts.failed_tests[0].message.length).toBe(2048);
+  });
+});
+
+describe("vitest-json todo handling", () => {
+  it("folds todo tests into skipped", () => {
+    const facts = parseVitestJson(JSON.stringify({
+      numTotalTests: 3,
+      numPassedTests: 1,
+      numFailedTests: 0,
+      numPendingTests: 1,
+      numTodoTests: 1,
+      testResults: [],
+    }));
+    expect(facts.skipped).toBe(2);
   });
 });

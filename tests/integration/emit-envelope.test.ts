@@ -124,6 +124,9 @@ describe("emit-envelope", () => {
 
   it("exits 4 when the LCOV report is missing", () => {
     const result = run(["emit-envelope", "--emit-envelope.lcov-path", "nope.info"]);
+    if (result.code !== 4) {
+      throw new Error(`exit=${result.code} stdout=${JSON.stringify(result.out.slice(0, 200))} stderr=${JSON.stringify(result.err.slice(0, 900))}`);
+    }
     expect(result.code).toBe(4);
   });
 

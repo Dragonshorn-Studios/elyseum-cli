@@ -1,5 +1,5 @@
 import { CalculationFailure } from "../core/errors";
-import { readLcovReport } from "../core/lcov";
+import { percent } from "../core/lcov";
 import { CoverageFacts, TestFacts } from "./types";
 import { parseGoCoverprofile } from "./go-coverprofile";
 import { parseCloverXml } from "./clover";
@@ -16,7 +16,7 @@ export * from "./types";
  */
 
 export type TestsParser = (raw: string) => TestFacts;
-export type CoverageParser = (raw: string) => Promise<CoverageFacts>;
+export type CoverageParser = (raw: string) => CoverageFacts | Promise<CoverageFacts>;
 
 const TESTS_PARSERS: Record<string, TestsParser> = {
   "vitest-json": parseVitestJson,
@@ -43,18 +43,10 @@ const COVERAGE_PARSERS: Record<string, CoverageParser> = {
         for (const record of data as any[]) {
           files.push({
             path: record.file,
-            line_percent:
-              record.lines.found === 0
-                ? null
-                : (record.lines.hit / record.lines.found) * 100,
-            function_percent:
-              record.functions.found === 0
-                ? null
-                : (record.functions.hit / record.functions.found) * 100,
-            branch_percent:
-              record.branches.found === 0
-                ? null
-                : (record.branches.hit / record.branches.found) * 100,
+            // Zero coverable lines is 100 (vacuously covered), never NaN or 0.
+            line_percent: percent(record.lines.hit, record.lines.found),
+            function_percent: percent(record.functions.hit, record.functions.found),
+            branch_percent: percent(record.branches.hit, record.branches.found),
           });
           totals.lines.total += record.lines.found;
           totals.lines.covered += record.lines.hit;
@@ -64,18 +56,9 @@ const COVERAGE_PARSERS: Record<string, CoverageParser> = {
           totals.branches.covered += record.branches.hit;
         }
         resolve({
-          line_percent:
-            totals.lines.total === 0
-              ? null
-              : (totals.lines.covered / totals.lines.total) * 100,
-          function_percent:
-            totals.functions.total === 0
-              ? null
-              : (totals.functions.covered / totals.functions.total) * 100,
-          branch_percent:
-            totals.branches.total === 0
-              ? null
-              : (totals.branches.covered / totals.branches.total) * 100,
+          line_percent: percent(totals.lines.covered, totals.lines.total),
+          function_percent: percent(totals.functions.covered, totals.functions.total),
+          branch_percent: percent(totals.branches.covered, totals.branches.total),
           files,
         });
       });

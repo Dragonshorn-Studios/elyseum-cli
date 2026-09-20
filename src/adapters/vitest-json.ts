@@ -5,9 +5,10 @@ import { CalculationFailure } from "../core/errors";
  * Vitest JSON reporter adapter (also consumes Jest-compatible JSON:
  * numTotalTests / testResults[].assertionResults[]).
  *
- * Status mapping: passed → passed; failed → failed; skipped/pending/
- * todo → skipped. Only failed tests carry identity details. Vitest JSON
- * reports no total duration, so duration_ms is null.
+ * Status mapping: passed → passed; failed → failed; skipped, pending and
+ * todo → skipped (numTodoTests folds into the skipped count). Only failed
+ * tests carry identity details. Vitest JSON reports no total duration, so
+ * duration_ms is null.
  */
 export function parseVitestJson(raw: string): TestFacts {
   let doc: any;
@@ -48,7 +49,7 @@ export function parseVitestJson(raw: string): TestFacts {
     total: doc.numTotalTests,
     passed: doc.numPassedTests ?? null,
     failed: doc.numFailedTests ?? null,
-    skipped: doc.numPendingTests ?? null,
+    skipped: (doc.numPendingTests ?? 0) + (doc.numTodoTests ?? 0) || null,
     duration_ms: null,
     failed_tests: failedTests,
   };

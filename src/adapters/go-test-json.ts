@@ -91,13 +91,9 @@ export function parseGoTestJson(raw: string): TestFacts {
     }
 
     if (test === null && event.Action === "fail") {
+      // Go 1.24+ emits a package-level fail alongside build-fail events;
+      // deduplicated below so a build failure is one identity, not two.
       packageFailures.add(pkg);
-      failures.push({
-        name: boundName(`${pkg} (package failed)`),
-        message: boundMessage((packageOutputs.get(pkg) ?? []).join("").trim() || null),
-        file: null,
-        line: null,
-      });
       continue;
     }
   }
@@ -117,25 +113,22 @@ export function parseGoTestJson(raw: string): TestFacts {
     durationMs += info.elapsedMs;
   }
 
-  for (const pkg of buildFailures) {
+  // A package that both fails and has build-fail events (Go 1.24+ emits a
+  // package-level fail for build errors) is ONE failed identity.
+  for (const pkg of new Set([...buildFailures, ...packageFailures])) {
     totals.total++;
     totals.failed++;
-    const message = (buildOutputs.get(pkg) ?? []).join("").trim();
+    const isBuild = buildFailures.has(pkg);
+    const message = isBuild
+      ? (buildOutputs.get(pkg) ?? []).join("").trim() || null
+      : (packageOutputs.get(pkg) ?? []).join("").trim() || null;
+    const label = isBuild ? "build failed" : "package failed";
     failures.push({
-      name: boundName(`${pkg} (build failed)`),
-      message: boundMessage(message === "" ? null : message),
+      name: boundName(`${pkg} (${label})`),
+      message: boundMessage(message),
       file: null,
       line: null,
     });
-  }
-
-  // Package failures that are not build failures (panics, setup): counted
-  // once here; build-failed packages were already added above.
-  for (const pkg of packageFailures) {
-    if (!buildFailures.has(pkg)) {
-      totals.total++;
-      totals.failed++;
-    }
   }
 
   return {

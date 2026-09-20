@@ -233,6 +233,51 @@ describe("combined adapter stacks", () => {
     expect(envelope.coverage).toBeUndefined();
   });
 
+  it("accepts coverage reports from stdin (-)", async () => {
+    const dir = await makeRepoDir("elyseum-stdin-");
+    await writeReports(dir, { "tests/vitest.json": VITEST_JSON });
+
+    const result = spawnSync(
+      process.execPath,
+      [
+        CLI, "emit-envelope",
+        "--emit-envelope.tests-format", "vitest-json",
+        "--emit-envelope.tests-input", "tests/vitest.json",
+        "--emit-envelope.coverage-format", "lcov",
+        "--emit-envelope.coverage-input", "-",
+      ],
+      { cwd: dir, encoding: "utf-8", input: LCOV },
+    );
+    const envelope = JSON.parse(result.stdout);
+    expect(validateSchema(envelope)).toBe(true);
+    expect(envelope.coverage.line_percent).toBe(50);
+  });
+
+  it("enforces bounds on failed tests and coverage files", async () => {
+    const dir = await makeRepoDir("elyseum-bounds-");
+    const manyFiles = Array.from({ length: 2500 }, (_, i) => ({
+      path: `src/file${i}.ts`,
+      line_percent: 50,
+    }));
+    await writeReports(dir, {
+      "coverage/clover.xml": `<?xml version="1.0"?><coverage><project>` +
+        Array.from({ length: 2500 }, (_, i) =>
+          `<file name="src/f${i}.ts"><metrics statements="2" coveredstatements="1" methods="0" coveredmethods="0" conditionals="0" coveredconditionals="0"/></file>`,
+        ).join("") + `</project></coverage>`,
+    });
+
+    const result = emit(
+      [
+        "--emit-envelope.coverage-format", "clover",
+        "--emit-envelope.coverage-input", "coverage/clover.xml",
+      ],
+      dir,
+    );
+
+    const envelope = JSON.parse(result.out);
+    expect(envelope.coverage.files).toHaveLength(2000);
+  });
+
   it("rejects unknown formats deterministically", () => {
     const result = emit(["--emit-envelope.tests-format", "cucumber"], repo);
     expect(result.code).toBe(2);

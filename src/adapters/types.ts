@@ -8,8 +8,8 @@
  * - Missing metrics are null/unknown, never fabricated as zero.
  * - Zero tests, missing coverage, and zero executable lines are separate
  *   states.
- * - Every string/label/count is bounded here, before serialization, so the
- *   envelope can never exceed the v1 limits.
+ * - Failed-test names/messages and coverage paths are bounded here, before
+ *   serialization, so the envelope can never exceed the v1 limits.
  */
 
 export interface NormalizedFailedTest {

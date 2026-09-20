@@ -120,8 +120,9 @@ Semantics:
   function/branch data — those stay null).
 - Coverage absence does not invalidate test facts: with no coverage input,
   the `coverage` section is omitted.
-- Failed tests, coverage files, names, paths and messages are bounded
-  (500 failed tests, 2000 files, 2048-char messages) before serialization.
+- Failed tests (500), coverage files (2000), names (512), failure messages
+  (2048 chars) and coverage paths (1024 chars) are bounded before
+  serialization.
 - XML is parsed without external entity or DTD resolution; input is never
   executed.
 - Malformed or truncated input fails with exit code 5 and an actionable

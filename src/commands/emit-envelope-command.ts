@@ -16,6 +16,7 @@ import { calculateTotalCoverage, readLcovReport } from "../core/lcov";
 import { resolveCommitFacts, resolveRunIdentity } from "../core/ci-env";
 import {
   BOUNDS,
+  boundPath,
   CoverageFacts,
   coverageParserFor,
   isCoverageFormat,
@@ -138,19 +139,32 @@ export class EmitEnvelopeCommand implements Command {
 
       let coverageRecords: any[] = [];
       let coverageAvailable = true;
-      try {
-        coverageRecords = await readLcovReport(lcovPath);
-      } catch (error) {
-        // Coverage absence must not invalidate otherwise valid test facts;
-        // an EXPLICIT --emit-envelope.lcov-path that is missing still fails.
-        if (error instanceof MissingLcovError && lcovPath !== "coverage/lcov.info") {
-          throw error;
+      const lcovExplicit = process.argv.some(
+        (a) => a === "--emit-envelope.lcov-path" || a.startsWith("--emit-envelope.lcov-path="),
+      );
+      // Config.get yields null (its default) for absent keys; null means
+      // "not given", never a value.
+      const coverageFormatRaw = Config.getInstance().get("emit-envelope.coverage-format");
+      const adapterCoverage =
+        coverageFormatRaw !== null && coverageFormatRaw !== undefined && coverageFormatRaw !== "";
+
+      if (!adapterCoverage) {
+        try {
+              coverageRecords = await readLcovReport(lcovPath);
+            } catch (error) {
+              // But a MISSING report at an explicitly given path is a user error
+          // (exit 4); only the silent default path degrades to no coverage.
+          if (error instanceof MissingLcovError && lcovExplicit) {
+            throw error;
+          }
+          if (error instanceof MissingLcovError) {
+            coverageAvailable = false;
+          } else {
+            throw error;
+          }
         }
-        if (error instanceof MissingLcovError) {
-          coverageAvailable = false;
-        } else {
-          throw error;
-        }
+      } else {
+        coverageAvailable = false;
       }
       const totals = calculateTotalCoverage(coverageRecords);
       const coveragePercent = totals.lines.percent;
@@ -295,6 +309,7 @@ export class EmitEnvelopeCommand implements Command {
    * option was not given.
    */
   private option<T = string>(key: string): T | undefined {
+    // Config.get yields null for absent keys; null/empty means "not given".
     const value = Config.getInstance().get(`emit-envelope.${key}`);
     return value === null || value === undefined || value === ""
       ? undefined
@@ -432,7 +447,10 @@ export class EmitEnvelopeCommand implements Command {
 
     return {
       ...facts,
-      files: facts.files.slice(0, BOUNDS.coverage_files),
+      files: facts.files.slice(0, BOUNDS.coverage_files).map((f) => ({
+        ...f,
+        path: boundPath(f.path),
+      })),
       diff_percent: null,
     };
   }
