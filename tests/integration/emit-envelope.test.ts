@@ -52,8 +52,12 @@ afterAll(async () => {
 });
 
 
-function run(args: string[], cwd: string = repo) {
-  const result = spawnSync(process.execPath, [CLI, ...args], { cwd, encoding: "utf-8" });
+function run(args: string[], cwd: string = repo, env: NodeJS.ProcessEnv = {}) {
+  const result = spawnSync(process.execPath, [CLI, ...args], {
+    cwd,
+    encoding: "utf-8",
+    env: { ...process.env, ...env },
+  });
   return { code: result.status ?? 1, out: result.stdout ?? "", err: result.stderr ?? "" };
 }
 
@@ -64,7 +68,12 @@ function parseEnvelope(out: string): any {
 
 describe("emit-envelope", () => {
   it("emits a schema-valid envelope from coverage and git facts", () => {
-    const result = run(["emit-envelope"]);
+    // Clear GitHub variables so the generic-CI fallback applies on runners.
+    const result = run(["emit-envelope"], repo, {
+      GITHUB_RUN_ID: "",
+      GITHUB_RUN_ATTEMPT: "",
+      GITHUB_REPOSITORY: "",
+    });
     expect(result.code, result.out).toBe(0);
 
     const envelope = parseEnvelope(result.out);
