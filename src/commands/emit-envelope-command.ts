@@ -15,6 +15,17 @@ import packageJson from "../../package.json";
 import { calculateTotalCoverage, readLcovReport } from "../core/lcov";
 import { resolveCommitFacts, resolveRunIdentity } from "../core/ci-env";
 import {
+  BOUNDS,
+  boundPath,
+  CoverageFacts,
+  coverageParserFor,
+  isCoverageFormat,
+  isTestsFormat,
+  Provenance,
+  TestFacts,
+  testsParserFor,
+} from "../adapters";
+import {
   EnvelopeV1,
   SUPPORTED_SCHEMA_VERSION,
   validateEnvelope,
@@ -31,10 +42,13 @@ export class EmitEnvelopeCommand implements Command {
   name: string = "emit-envelope";
   config?: CustomConfig = {
     "lcov-path": {
+      // No declared default: resolution order is this option, then the
+      // shared coverage.lcov-path, then the built-in
+      // coverage/lcov.info (see run()).
       help: "Path to the LCOV report",
       type: "str",
       required: false,
-      default: "coverage/lcov.info",
+      default: null,
     },
     out: {
       help: "Write the envelope to this file instead of stdout",
@@ -87,6 +101,30 @@ export class EmitEnvelopeCommand implements Command {
       required: false,
       default: "",
     },
+    "tests-format": {
+      help: "Test report format: vitest-json | junit | go-test-json",
+      type: "str",
+      required: false,
+      default: "",
+    },
+    "tests-input": {
+      help: "Test report path, or - for stdin",
+      type: "str",
+      required: false,
+      default: "",
+    },
+    "coverage-format": {
+      help: "Coverage report format: lcov | clover | go-coverprofile",
+      type: "str",
+      required: false,
+      default: "",
+    },
+    "coverage-input": {
+      help: "Coverage report path, or - for stdin",
+      type: "str",
+      required: false,
+      default: "",
+    },
   };
 
   constructor(commands: CommandMap) {
@@ -102,9 +140,44 @@ export class EmitEnvelopeCommand implements Command {
         "coverage/lcov.info",
       ) as string;
 
-      const coverageRecords = await readLcovReport(lcovPath);
+      const testsFacts = (await this.collectTestsFacts()) ?? this.testsFromFlags();
+
+      let coverageRecords: any[] = [];
+      let coverageAvailable = true;
+      // Explicit = the CLI flag, or a config-file path that differs from the
+      // declared default (an explicitly configured missing report is a user
+      // error, not silent no-coverage).
+      const lcovExplicit =
+        process.argv.some(
+          (a) =>
+            a === "--emit-envelope.lcov-path" || a.startsWith("--emit-envelope.lcov-path="),
+        ) || lcovPath !== "coverage/lcov.info";
+      // Config.get yields null (its default) for absent keys; null means
+      // "not given", never a value.
+      const coverageFormatRaw = Config.getInstance().get("emit-envelope.coverage-format");
+      const adapterCoverage =
+        coverageFormatRaw !== null && coverageFormatRaw !== undefined && coverageFormatRaw !== "";
+
+      if (!adapterCoverage) {
+        try {
+          coverageRecords = await readLcovReport(lcovPath);
+        } catch (error) {
+          // A missing report at the silent default path degrades to a
+          // tests-only envelope — but only when tests facts exist; without
+          // them the missing LCOV is the actionable failure (exit 4).
+          if (error instanceof MissingLcovError && (lcovExplicit || !testsFacts)) {
+            throw error;
+          }
+          if (error instanceof MissingLcovError) {
+            coverageAvailable = false;
+          } else {
+            throw error;
+          }
+        }
+      } else {
+        coverageAvailable = false;
+      }
       const totals = calculateTotalCoverage(coverageRecords);
-      const coveragePercent = totals.lines.percent;
 
       // Commit facts come from git; the run identity from the CI
       // environment with a documented generic-CI fallback.
@@ -132,11 +205,26 @@ export class EmitEnvelopeCommand implements Command {
         ? { conclusion: gateConclusionRaw as "passed" | "failed" | "unknown" }
         : undefined;
 
-      const testsTotal = this.intOption("tests-total");
-      if (testsTotal !== undefined && testsTotal < 0) {
-        throw new InvalidConfigError("tests-total must not be negative.");
-      }
-      const hasTests = testsTotal !== undefined;
+      const coverageFacts = await this.collectCoverageFacts(
+        coverageRecords,
+        totals,
+        coverageAvailable,
+      );
+
+      const testsFormat = Config.getInstance().get("emit-envelope.tests-format");
+      const coverageFormat = Config.getInstance().get("emit-envelope.coverage-format");
+      const provenance: Provenance | undefined =
+        testsFormat || coverageFormat
+          ? {
+              ...(testsFormat
+                ? { tests_format: String(testsFormat).slice(0, BOUNDS.provenance_value) }
+                : {}),
+              ...(coverageFormat
+                ? { coverage_format: String(coverageFormat).slice(0, BOUNDS.provenance_value) }
+                : {}),
+              tool_versions: { "elyseum-cli": this.cliVersion() },
+            }
+          : undefined;
 
       const envelope = {
         schema_version: SUPPORTED_SCHEMA_VERSION,
@@ -156,25 +244,43 @@ export class EmitEnvelopeCommand implements Command {
           branch: commitFacts.branch,
           committed_at: commitFacts.committed_at,
         },
-        ...(hasTests
+        ...(testsFacts
           ? {
               tests: {
-                total: testsTotal,
-                passed: this.intOption("tests-passed") ?? null,
-                failed: this.intOption("tests-failed") ?? null,
-                skipped: this.intOption("tests-skipped") ?? null,
-                duration_ms: this.intOption("tests-duration-ms") ?? null,
+                total: testsFacts.total,
+                passed: testsFacts.passed,
+                failed: testsFacts.failed,
+                skipped: testsFacts.skipped,
+                duration_ms: testsFacts.duration_ms,
+                failed_tests: testsFacts.failed_tests,
               },
             }
           : {}),
-        coverage: {
-          // The contract allows at most 4 decimal places; raw ratios like
-          // 1/3 would carry 14 digits and be rejected at ingest.
-          line_percent: this.r4(coveragePercent),
-          function_percent: this.r4(totals.functions.percent),
-          branch_percent: this.r4(totals.branches.percent),
-        },
+        ...(coverageFacts
+          ? {
+              coverage: {
+                line_percent:
+                  coverageFacts.line_percent === null || coverageFacts.line_percent === undefined
+                    ? null
+                    : this.r4(coverageFacts.line_percent),
+                function_percent:
+                  coverageFacts.function_percent === null
+                    ? null
+                    : this.r4(coverageFacts.function_percent),
+                branch_percent:
+                  coverageFacts.branch_percent === null
+                    ? null
+                    : this.r4(coverageFacts.branch_percent),
+                ...(coverageFacts.diff_percent !== null &&
+                coverageFacts.diff_percent !== undefined
+                  ? { diff_percent: this.r4(coverageFacts.diff_percent) }
+                  : {}),
+                ...(coverageFacts.files.length > 0 ? { files: coverageFacts.files } : {}),
+              },
+            }
+          : {}),
         ...(qualityGate ? { quality_gate: qualityGate } : {}),
+        ...(provenance ? { provenance } : {}),
       };
 
       const issues = validateEnvelope(envelope as EnvelopeV1);
@@ -215,6 +321,7 @@ export class EmitEnvelopeCommand implements Command {
    * option was not given.
    */
   private option<T = string>(key: string): T | undefined {
+    // Config.get yields null for absent keys; null/empty means "not given".
     const value = Config.getInstance().get(`emit-envelope.${key}`);
     return value === null || value === undefined || value === ""
       ? undefined
@@ -235,6 +342,144 @@ export class EmitEnvelopeCommand implements Command {
     }
 
     return parsed;
+  }
+
+  /**
+   * Collects normalized test facts from an explicit --tests-format +
+   * --tests-input pair. Auto-detection is deliberately not offered: an
+   * ambiguous format is a contract violation, not a convenience.
+   */
+  /**
+   * Manual test facts from the --tests-* flags (used when no adapter input
+   * is given). All absent means no tests section at all.
+   */
+  private testsFromFlags(): TestFacts | undefined {
+    const total = this.intOption("tests-total");
+    const passed = this.intOption("tests-passed");
+    const failed = this.intOption("tests-failed");
+    const skipped = this.intOption("tests-skipped");
+    const durationMs = this.intOption("tests-duration-ms");
+
+    if ([total, passed, failed, skipped, durationMs].every((v) => v === undefined)) {
+      return undefined;
+    }
+
+    for (const [label, value] of [
+      ["tests-total", total],
+      ["tests-passed", passed],
+      ["tests-failed", failed],
+      ["tests-skipped", skipped],
+    ] as const) {
+      if (value !== undefined && value < 0) {
+        throw new InvalidConfigError(`${label} must not be negative.`);
+      }
+    }
+
+    const resolvedTotal = total ?? (passed ?? 0) + (failed ?? 0) + (skipped ?? 0);
+
+    return {
+      total: resolvedTotal,
+      passed: passed ?? null,
+      failed: failed ?? null,
+      skipped: skipped ?? null,
+      duration_ms: durationMs ?? null,
+      failed_tests: [],
+    };
+  }
+
+  private async collectTestsFacts(): Promise<TestFacts | undefined> {
+    const format = Config.getInstance().get("emit-envelope.tests-format");
+    const input = Config.getInstance().get("emit-envelope.tests-input");
+
+    if (!format && !input) {
+      return undefined;
+    }
+
+    if (!isTestsFormat(String(format))) {
+      throw new InvalidConfigError(
+        `tests-format must be one of vitest-json, junit, go-test-json (got "${format}").`,
+      );
+    }
+    if (!input) {
+      throw new InvalidConfigError("tests-format requires --emit-envelope.tests-input.");
+    }
+
+    const raw = await this.readInput(input);
+    const facts = testsParserFor(String(format))(raw);
+
+    return {
+      ...facts,
+      failed_tests: facts.failed_tests.slice(0, BOUNDS.failed_tests),
+    };
+  }
+
+  /**
+   * Collects coverage facts. With --coverage-format, the explicit adapter
+   * path applies; otherwise the default LCOV report is used (backwards
+   * compatible with the plain coverage/diff-coverage flows).
+   */
+  private async collectCoverageFacts(
+    coverageRecords: any[],
+    totals: {
+      lines: { percent: number };
+      functions: { percent: number };
+      branches: { percent: number };
+    },
+    coverageAvailable: boolean,
+  ): Promise<(CoverageFacts & { diff_percent: number | null }) | undefined> {
+    const format = Config.getInstance().get("emit-envelope.coverage-format");
+    const input = Config.getInstance().get("emit-envelope.coverage-input");
+
+    if (!format && !input) {
+      // No coverage source given: omit the section entirely (a tests-only
+      // envelope is valid) unless the default report actually exists.
+      if (!coverageAvailable) {
+        return undefined;
+      }
+      return {
+        line_percent: totals.lines.percent,
+        function_percent: totals.functions.percent,
+        branch_percent: totals.branches.percent,
+        diff_percent: null,
+        files: [],
+      };
+    }
+
+    if (!isCoverageFormat(String(format))) {
+      throw new InvalidConfigError(
+        `coverage-format must be one of lcov, clover, go-coverprofile (got "${format}").`,
+      );
+    }
+    if (!input) {
+      throw new InvalidConfigError("coverage-format requires --emit-envelope.coverage-input.");
+    }
+
+    const raw = await this.readInput(input);
+    const facts = await coverageParserFor(String(format))(raw);
+
+    return {
+      ...facts,
+      files: facts.files.slice(0, BOUNDS.coverage_files).map((f) => ({
+        ...f,
+        path: boundPath(f.path),
+      })),
+      diff_percent: null,
+    };
+  }
+
+  private async readInput(input: string): Promise<string> {
+    if (input === "-") {
+      const chunks: Buffer[] = [];
+      for await (const chunk of process.stdin) {
+        chunks.push(Buffer.from(chunk));
+      }
+      return Buffer.concat(chunks).toString("utf-8");
+    }
+    try {
+      return await fs.readFile(input, "utf-8");
+    } catch {
+      throw new CalculationFailure(`Could not read report input at "${input}".`);
+    }
   }
 
   private cliVersion(): string {

@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<coverage generated="1695000000">
+  <project timestamp="1695000000">
+    <file name="/var/www/app/Models/Project.php">
+      <metrics statements="20" coveredstatements="16" methods="5" coveredmethods="4" conditionals="4" coveredconditionals="3"/>
+    </file>
+    <file name="/var/www/app/Http/Controllers/RunController.php">
+      <metrics statements="30" coveredstatements="15" methods="8" coveredmethods="4" conditionals="10" coveredconditionals="5"/>
+    </file>
+  </project>
+</coverage>

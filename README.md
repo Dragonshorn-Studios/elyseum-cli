@@ -84,6 +84,52 @@ the listed file as changed — gates are therefore stricter in that mode.
 | 4 | LCOV report not found |
 | 5 | Any other calculation or runtime error |
 
+## Input adapters (`emit-envelope`)
+
+Adapters translate tool-specific reports into the versioned v1 envelope
+(pinned from the host: `schemas/envelope.v1.json`). Format selection is
+explicit — no auto-detection.
+
+| Option | Values | Reads |
+| --- | --- | --- |
+| `--emit-envelope.tests-format` | `vitest-json` \| `junit` \| `go-test-json` | test report |
+| `--emit-envelope.tests-input` | path or `-` (stdin) | test report |
+| `--emit-envelope.coverage-format` | `lcov` \| `clover` \| `go-coverprofile` | coverage report |
+| `--emit-envelope.coverage-input` | path or `-` (stdin) | coverage report |
+
+Example (Vitest + LCOV, i.e. Maomao):
+
+```bash
+elyseum-cli emit-envelope \
+  --emit-envelope.tests-format vitest-json \
+  --emit-envelope.tests-input tests/vitest.json \
+  --emit-envelope.coverage-format lcov \
+  --emit-envelope.coverage-input coverage/lcov.info \
+  --emit-envelope.out envelope.json
+```
+
+Marller (Go): `--emit-envelope.tests-format go-test-json` with
+`go test -json ./...` output, and `--emit-envelope.coverage-format
+go-coverprofile` with `go test -coverprofile`. Laravel:
+`--emit-envelope.tests-format junit` with `--log-junit` output and
+`--emit-envelope.coverage-format clover` with `--coverage-clover`.
+
+Semantics:
+
+- Missing metrics are `null`/unknown, never zero (Go coverage provides no
+  function/branch data — those stay null).
+- Coverage absence does not invalidate test facts: with no coverage input,
+  the `coverage` section is omitted.
+- Failed tests (500), coverage files (2000), names (512), failure messages
+  (2048 chars) and coverage paths (1024 chars) are bounded before
+  serialization.
+- XML is parsed without external entity or DTD resolution; input is never
+  executed.
+- Malformed or truncated input fails with exit code 5 and an actionable
+  diagnostic.
+- Provenance (formats, CLI version) is recorded in the envelope's
+  `provenance` field.
+
 ## Behavior notes
 
 - Percentages are always finite: a metric with zero eligible items (zero
