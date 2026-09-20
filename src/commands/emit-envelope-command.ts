@@ -178,7 +178,6 @@ export class EmitEnvelopeCommand implements Command {
         coverageAvailable = false;
       }
       const totals = calculateTotalCoverage(coverageRecords);
-      const coveragePercent = totals.lines.percent;
 
       // Commit facts come from git; the run identity from the CI
       // environment with a documented generic-CI fallback.
