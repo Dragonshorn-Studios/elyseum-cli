@@ -1,0 +1,5 @@
+{"Action": "start"}
+{"Action": "run", "Package": "example.com/m", "Test": "TestSum"}
+{"Action": "output", "Package": "example.com/m", "Test": "TestSum", "Output": "=== RUN TestSum\n"}
+{"Action": "pass", "Package": "example.com/m", "Test": "TestSum", "Elapsed": 0.02}
+{"Action": "pass", "Package": "example.com/m", "Elapsed": 0.03}
