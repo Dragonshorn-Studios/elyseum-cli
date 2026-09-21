@@ -18,6 +18,7 @@ fi
 
 cp "$SOURCE/schemas/envelope.v1.json" schemas/envelope.v1.json
 cp "$SOURCE"/fixtures/envelope.v1/*.json fixtures/envelope.v1/
+cp "$SOURCE/fixtures/envelope.v1/MANIFEST.sha256" fixtures/envelope.v1/MANIFEST.sha256
 
 echo "contract re-pinned from $SOURCE. Diff review + version bump per docs/contract.md next:"
 git status --short schemas fixtures
