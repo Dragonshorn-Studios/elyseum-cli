@@ -11,7 +11,8 @@ permissions:
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
+    # Self-hosted: private repository, hosted runners bill per minute.
+    runs-on: self-hosted
 
     strategy:
       matrix:
