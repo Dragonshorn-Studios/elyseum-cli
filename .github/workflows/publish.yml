@@ -7,7 +7,7 @@ on:
 
 jobs:
   publish:
-    # Self-hosted: private repository, hosted runners bill per minute.
+    # Self-hosted (docker-labeled): private repository, hosted runners bill per minute.
     runs-on: [self-hosted, docker]
 
     steps:
