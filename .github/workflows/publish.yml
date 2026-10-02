@@ -8,7 +8,7 @@ on:
 jobs:
   publish:
     # Self-hosted: private repository, hosted runners bill per minute.
-    runs-on: self-hosted
+    runs-on: [self-hosted, docker]
 
     steps:
       - name: Checkout code

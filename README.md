@@ -4,9 +4,10 @@
 
 # Elyseum CLI
 
-The producer half of the Elyseum suite: a command-line coverage engine that
-turns LCOV/JUnit/Clover/Go reports into total & diff coverage, terminal and
-PR reporters, quality gates, and the versioned result envelope the
+The producer half of the Elyseum suite: a command-line coverage engine —
+total & diff coverage from LCOV reports, terminal and PR reporters, quality
+gates — plus adapters that turn JUnit, Clover, Go, and LCOV reports into the
+versioned result envelope the
 [Elyseum](https://github.com/Dragonshorn-Studios/elyseum) host stores. Run it
 directly or through the
 [elyseum-coverage-reporter-action](https://github.com/Dragonshorn-Studios/elyseum-coverage-reporter-action).

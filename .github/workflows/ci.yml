@@ -11,19 +11,21 @@ permissions:
 
 jobs:
   ci:
-    # Self-hosted: private repository, hosted runners bill per minute.
-    runs-on: self-hosted
+    # Self-hosted (docker-labeled): private repository, hosted runners bill per minute.
+    runs-on: [self-hosted, docker]
 
     strategy:
       matrix:
         node: ['20', '22']
 
     steps:
-      - name: Contract drift check
-        run: ./scripts/check-contract-drift.sh
-
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # After checkout: self-hosted workspaces persist between runs, so a
+      # pre-checkout run would silently verify a stale tree.
+      - name: Contract drift check
+        run: ./scripts/check-contract-drift.sh
 
       - name: Setup Node
         uses: actions/setup-node@v4
