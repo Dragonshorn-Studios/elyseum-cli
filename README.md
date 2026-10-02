@@ -1,9 +1,14 @@
+<div align="center">
+  <img src=".github/logo.svg" alt="Elyseum — CI quality ledger" width="720">
+</div>
+
 # Elyseum CLI
 
-A command-line coverage engine: total and diff coverage from LCOV reports,
-reporters for terminals, Markdown and GitHub pull requests, and quality gates.
-Part of the [Elyseum](https://github.com/Dragonshorn-Studios/elyseum) suite —
-used directly or through the
+The producer half of the Elyseum suite: a command-line coverage engine that
+turns LCOV/JUnit/Clover/Go reports into total & diff coverage, terminal and
+PR reporters, quality gates, and the versioned result envelope the
+[Elyseum](https://github.com/Dragonshorn-Studios/elyseum) host stores. Run it
+directly or through the
 [elyseum-coverage-reporter-action](https://github.com/Dragonshorn-Studios/elyseum-coverage-reporter-action).
 
 ## Installation
