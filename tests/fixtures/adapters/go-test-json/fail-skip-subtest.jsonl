@@ -1,0 +1,9 @@
+{"Action": "run", "Package": "example.com/m/div", "Test": "TestDiv"}
+{"Action": "run", "Package": "example.com/m/div", "Test": "TestDiv/sub"}
+{"Action": "fail", "Package": "example.com/m/div", "Test": "TestDiv/sub", "Elapsed": 0.01}
+{"Action": "output", "Package": "example.com/m/div", "Test": "TestDiv", "Output": "--- FAIL: TestDiv (0.00s)\n"}
+{"Action": "fail", "Package": "example.com/m/div", "Test": "TestDiv", "Elapsed": 0.02}
+{"Action": "skip", "Package": "example.com/m/div", "Test": "TestSkipped"}
+{"Action": "skip", "Package": "example.com/m/div", "Test": "TestSkipped"}
+{"Action": "pass", "Package": "example.com/m/ok", "Test": "TestOk", "Elapsed": 0.05}
+{"Action": "pass", "Package": "example.com/m/ok", "Elapsed": 0.06}

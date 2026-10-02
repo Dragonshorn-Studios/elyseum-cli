@@ -8,7 +8,8 @@ on:
 
 jobs:
   run-coverage:
-    runs-on: ubuntu-latest
+    # Self-hosted (docker-labeled): private repository, hosted runners bill per minute.
+    runs-on: [self-hosted, docker]
     steps:
       - name: Set up Node.js
         uses: actions/setup-node@v4

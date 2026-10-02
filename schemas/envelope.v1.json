@@ -1,0 +1,334 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/Dragonshorn-Studios/elyseum/main/schemas/envelope.v1.json",
+    "title": "Elyseum CI result envelope",
+    "description": "Version 1 of the normalized CI result contract produced by elyseum-cli and consumed by the Elyseum host. Elyseum owns this document; producers pin a copy. Consumers MUST ignore unknown top-level fields (additive rule); every object inside the envelope is closed, so new nested fields require version 2. Changing or removing a known field, or tightening a type, also requires version 2. Numbers must be finite (NaN and Infinity are not valid JSON). The tests and coverage sections are optional: a producer that cannot report them omits the section entirely rather than sending zeros. Duplicate object keys resolve last-wins under the host's JSON decoder.",
+    "type": "object",
+    "required": [
+        "schema_version",
+        "producer",
+        "run",
+        "commit"
+    ],
+    "properties": {
+        "schema_version": {
+            "const": "1"
+        },
+        "producer": {
+            "description": "The tool that generated this envelope.",
+            "type": "object",
+            "required": [
+                "name",
+                "version"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                },
+                "version": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 32
+                }
+            },
+            "additionalProperties": false
+        },
+        "run": {
+            "description": "CI run identity. The host derives idempotency from the authenticated project + provider + run_id + job_id + attempt; an absent or null job_id is treated as the empty string and is the same identity.",
+            "type": "object",
+            "required": [
+                "provider",
+                "run_id",
+                "attempt"
+            ],
+            "properties": {
+                "provider": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 32,
+                    "pattern": "^[a-z0-9][a-z0-9_-]*$"
+                },
+                "run_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                },
+                "job_id": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "minLength": 1,
+                    "maxLength": 128
+                },
+                "attempt": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000
+                },
+                "url": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "maxLength": 2048
+                },
+                "started_at": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "format": "date-time",
+                    "maxLength": 40,
+                    "description": "RFC 3339 timestamp; the host stores whole-second UTC precision."
+                },
+                "finished_at": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "format": "date-time",
+                    "maxLength": 40,
+                    "description": "RFC 3339 timestamp; the host stores whole-second UTC precision."
+                }
+            },
+            "additionalProperties": false
+        },
+        "commit": {
+            "type": "object",
+            "required": [
+                "sha",
+                "branch"
+            ],
+            "properties": {
+                "sha": {
+                    "description": "Full 40-character lowercase hex SHA-1 of the commit.",
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                },
+                "branch": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 255,
+                    "pattern": "^[^\\x00-\\x1f\\x7f]+$"
+                },
+                "committed_at": {
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "format": "date-time",
+                    "maxLength": 40,
+                    "description": "RFC 3339 timestamp; the host stores whole-second UTC precision."
+                },
+                "base_sha": {
+                    "description": "Base SHA the diff coverage was computed against, when known.",
+                    "type": [
+                        "string",
+                        "null"
+                    ],
+                    "pattern": "^[0-9a-f]{40}$"
+                }
+            },
+            "additionalProperties": false
+        },
+        "tests": {
+            "type": "object",
+            "required": [
+                "total"
+            ],
+            "properties": {
+                "total": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000000
+                },
+                "passed": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 10000000
+                },
+                "failed": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 10000000
+                },
+                "skipped": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 10000000
+                },
+                "duration_ms": {
+                    "type": [
+                        "integer",
+                        "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 864000000
+                },
+                "failed_tests": {
+                    "description": "Bounded list. The host stores the list only if it has at most this many entries; longer lists are rejected.",
+                    "type": "array",
+                    "maxItems": 500,
+                    "uniqueItems": false,
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "name"
+                        ],
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 512
+                            },
+                            "message": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "maxLength": 2048
+                            },
+                            "file": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "maxLength": 512
+                            },
+                            "line": {
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "minimum": 0,
+                                "maximum": 10000000
+                            }
+                        },
+                        "additionalProperties": false
+                    }
+                }
+            },
+            "additionalProperties": false
+        },
+        "coverage": {
+            "description": "Percentages are 0..100 with at most 4 decimal places; null means the producer could not report the metric (never store 0 instead of null).",
+            "type": "object",
+            "properties": {
+                "line_percent": {
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "0..100, at most 4 decimal places, or null when unknown."
+                },
+                "function_percent": {
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "0..100, at most 4 decimal places, or null when unknown."
+                },
+                "branch_percent": {
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 100,
+                    "description": "0..100, at most 4 decimal places, or null when unknown."
+                },
+                "diff_percent": {
+                    "description": "0..100, at most 4 decimal places, or null when unknown.",
+                    "type": [
+                        "number",
+                        "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 100
+                },
+                "files": {
+                    "description": "Optional per-file coverage. The host stores the list only if it has at most this many entries; longer lists are rejected.",
+                    "type": "array",
+                    "maxItems": 2000,
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "path",
+                            "line_percent"
+                        ],
+                        "properties": {
+                            "path": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 1024
+                            },
+                            "line_percent": {
+                                "description": "0..100, at most 4 decimal places, or null when unknown.",
+                                "type": [
+                                    "number",
+                                    "null"
+                                ],
+                                "minimum": 0,
+                                "maximum": 100
+                            },
+                            "function_percent": {
+                                "description": "0..100, at most 4 decimal places, or null when unknown.",
+                                "type": [
+                                    "number",
+                                    "null"
+                                ],
+                                "minimum": 0,
+                                "maximum": 100
+                            },
+                            "branch_percent": {
+                                "description": "0..100, at most 4 decimal places, or null when unknown.",
+                                "type": [
+                                    "number",
+                                    "null"
+                                ],
+                                "minimum": 0,
+                                "maximum": 100
+                            }
+                        },
+                        "additionalProperties": false
+                    }
+                }
+            },
+            "additionalProperties": false
+        },
+        "quality_gate": {
+            "description": "The producer's quality-gate evaluation, when it made one. The host treats conclusion \"failed\" as a failed run regardless of test counts.",
+            "type": "object",
+            "required": [
+                "conclusion"
+            ],
+            "properties": {
+                "conclusion": {
+                    "enum": [
+                        "passed",
+                        "failed",
+                        "unknown"
+                    ]
+                }
+            },
+            "additionalProperties": false
+        }
+    },
+    "additionalProperties": true
+}

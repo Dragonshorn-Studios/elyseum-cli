@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="Unit" tests="3" failures="1" errors="1" skipped="1" time="0.50">
+    <testcase name="test_passes" classname="Unit\SumTest" time="0.05"/>
+    <testcase name="test_assertion" classname="Unit\DivTest" time="0.05">
+      <failure message="Failed asserting that 2 is 3">Failed asserting that 2 is 3.</failure>
+    </testcase>
+    <testcase name="test_error" classname="Unit\CrashTest" time="0.10">
+      <error type="TypeError">Call to undefined method</error>
+    </testcase>
+    <testcase name="test_skipped" classname="Unit\EnvTest" time="0.00">
+      <skipped>Requires special env</skipped>
+    </testcase>
+  </testsuite>
+</testsuites>

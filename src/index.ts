@@ -5,6 +5,8 @@ import { COVERAGE_REPORTERS } from "./utils/reporters/reporters";
 import Config from "./config";
 import { CommandFactory } from "./commands/command";
 import { Logger } from "./utils/logger";
+import { EXIT_CODES } from "./core/exit-codes";
+import packageJson from "../package.json";
 
 const commandFactory = new CommandFactory();
 const parser = new ArgumentParser({
@@ -17,7 +19,10 @@ parser.add_argument("command", {
   default: "help",
 });
 
-parser.add_argument("-v", "--version", { action: "version", version: "1.0.0" });
+parser.add_argument("-v", "--version", {
+  action: "version",
+  version: packageJson.version,
+});
 
 parser.add_argument("--reporter.coverage", {
   help: "Coverage reporter(s), separated by commas",
@@ -51,9 +56,15 @@ parser.add_argument("--reporter.coverage.details", {
 });
 
 parser.add_argument("--reporter.coverage.quality-gate", {
-  help: "Coverage quality gate",
+  help: "Coverage quality gate (percentage; below it the gate warns)",
   type: "int",
   dest: "reporter_coverage_quality-gate",
+});
+
+parser.add_argument("--reporter.coverage.quality-gate-fail", {
+  help: "Coverage quality gate to fail (percentage; at or below it the command exits 1)",
+  type: "int",
+  dest: "reporter_coverage_quality-gate-fail",
 });
 
 parser.add_argument("--environment", "-e", {
@@ -83,7 +94,16 @@ const config = Config.getInstance(args);
 
 const selectedCommand = commandFactory.getCommand(args);
 if (selectedCommand !== undefined) {
-  selectedCommand.run(args);
+  selectedCommand
+    .run(args)
+    .then((exitCode) => {
+      process.exitCode = exitCode;
+    })
+    .catch((error: any) => {
+      Logger.error(`Unhandled error: ${error.message}`);
+      process.exitCode = EXIT_CODES.CALCULATION_ERROR;
+    });
 } else {
   parser.print_help();
+  process.exitCode = EXIT_CODES.SUCCESS;
 }

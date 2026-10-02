@@ -1,0 +1,7 @@
+{
+    "schema_version": "1",
+    "producer": {"name": "elyseum-cli", "version": "1.0.0"},
+    "run": {"provider": "github", "run_id": "123", "attempt": 1},
+    "tests": {"total": 1},
+    "coverage": {}
+}

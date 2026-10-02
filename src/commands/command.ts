@@ -1,12 +1,13 @@
 import fs from "fs";
 import { CoverageCommand } from "./coverage-command";
 import { DiffCoverageCommand } from "./diff-coverage-command";
+import { EmitEnvelopeCommand } from "./emit-envelope-command";
 import { CustomConfig } from "../config";
 import { PrintConfigCommand } from "./print-config-command";
 import { Logger } from "../utils/logger"; // Import the logger
 
 export interface Command {
-  run(args: any): Promise<void>;
+  run(args: any): Promise<number>;
   config?: CustomConfig;
   name: string;
 }
@@ -21,17 +22,13 @@ export class CommandFactory {
   constructor() {
     new CoverageCommand(this.commands);
     new DiffCoverageCommand(this.commands);
+    new EmitEnvelopeCommand(this.commands);
     new PrintConfigCommand(this.commands);
   }
 
   getCommand(args: any): Command | undefined {
-    try {
-      Logger.debug(`Fetching command: ${args.command}`); // Add debug log
-      return this.commands[args.command];
-    } catch (error: any) {
-      Logger.error(`Error fetching command: ${error.message}`); // Add error log
-      return undefined;
-    }
+    Logger.debug(`Fetching command: ${args.command}`);
+    return this.commands[args.command];
   }
 
   getAvailableCommands() {

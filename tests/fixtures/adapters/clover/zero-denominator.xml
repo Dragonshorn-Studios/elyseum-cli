@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<coverage generated="1695000000">
+  <project timestamp="1695000000">
+    <file name="/var/www/app/empty.php">
+      <metrics statements="0" coveredstatements="0" methods="0" coveredmethods="0" conditionals="0" coveredconditionals="0"/>
+    </file>
+  </project>
+</coverage>

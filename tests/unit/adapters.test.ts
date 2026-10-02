@@ -1,0 +1,225 @@
+import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { parseGoTestJson } from "../../src/adapters/go-test-json";
+import { parseJunitXml } from "../../src/adapters/junit";
+import { parseVitestJson } from "../../src/adapters/vitest-json";
+import { parseCloverXml } from "../../src/adapters/clover";
+import { parseGoCoverprofile } from "../../src/adapters/go-coverprofile";
+
+const FIXTURES = path.resolve(__dirname, "../../tests/fixtures/adapters");
+
+function fixture(...segments: string[]): string {
+  return readFileSync(path.join(FIXTURES, ...segments), "utf-8");
+}
+
+describe("vitest-json adapter", () => {
+  it("maps pass/fail/skip with failure identity", () => {
+    const facts = parseVitestJson(fixture("vitest-json", "fail.json"));
+    expect(facts.total).toBe(3);
+    expect(facts.passed).toBe(1);
+    expect(facts.failed).toBe(1);
+    expect(facts.skipped).toBe(1);
+    expect(facts.failed_tests[0].name).toBe("app divides");
+    expect(facts.failed_tests[0].message).toContain("expected 2 to be 3");
+  });
+
+  it("reports an empty suite as zero tests, not unknown", () => {
+    const facts = parseVitestJson(fixture("vitest-json", "empty.json"));
+    expect(facts.total).toBe(0);
+    expect(facts.duration_ms).toBeNull();
+  });
+
+  it("fails on malformed JSON", () => {
+    expect(() => parseVitestJson(fixture("vitest-json", "malformed.json"))).toThrow(/not valid JSON/);
+  });
+});
+
+describe("junit adapter (Pest/PHPUnit)", () => {
+  it("distinguishes failures, errors, skips, and passes", () => {
+    const facts = parseJunitXml(fixture("junit", "fail-error-skip.xml"));
+    expect(facts.total).toBe(4);
+    expect(facts.passed).toBe(1);
+    expect(facts.failed).toBe(2);
+    expect(facts.skipped).toBe(1);
+    expect(facts.failed_tests[1].message).toContain("undefined method");
+    expect(facts.failed_tests[0].name).toContain("DivTest");
+  });
+
+  it("handles an empty suite", () => {
+    const facts = parseJunitXml(fixture("junit", "empty.xml"));
+    expect(facts.total).toBe(0);
+    expect(facts.passed).toBe(0);
+  });
+
+  it("flattens nested suites and preserves the error distinction in messages", () => {
+    const nested = `<?xml version="1.0"?>
+<testsuites>
+  <testsuite:skip xmlns:x="y"/>
+</testsuites>`;
+    const doc = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="Group" tests="3" failures="0" errors="1" skipped="1" time="0.4">
+    <testsuite name="Sub" tests="3" failures="0" errors="1" skipped="1" time="0.4">
+      <testcase name="test_error" classname="Sub\CrashTest" time="0.2">
+        <error type="TypeError">Call to undefined method foo()</error>
+      </testcase>
+      <testcase name="test_skipped" classname="Sub\EnvTest" time="0.0">
+        <skipped/>
+      </testcase>
+      <testcase name="test_ok" classname="Sub\OkTest" time="0.2"/>
+    </testsuite>
+  </testsuite>
+</testsuites>`;
+    const facts = parseJunitXml(doc || nested);
+    expect(facts.total).toBe(3);
+    expect(facts.failed).toBe(1);
+    expect(facts.skipped).toBe(1);
+    expect(facts.passed).toBe(1);
+    expect(facts.failed_tests[0].message).toContain("Call to undefined method foo()");
+  });
+
+  it("fails on malformed XML", () => {
+    expect(() => parseJunitXml(fixture("junit", "malformed.xml"))).toThrow(/testsuite/);
+  });
+});
+
+describe("go-test-json adapter", () => {
+  it("counts subtests separately from their parent", () => {
+    const facts = parseGoTestJson(fixture("go-test-json", "fail-skip-subtest.jsonl"));
+    expect(facts.total).toBe(4);
+    expect(facts.passed).toBe(1);
+    expect(facts.failed).toBe(2);
+    expect(facts.skipped).toBe(1);
+    expect(facts.failed_tests.map((f) => f.name)).toContain("example.com/m/div#TestDiv/sub");
+  });
+
+  it("treats cached passing tests as passed", () => {
+    const facts = parseGoTestJson(fixture("go-test-json", "cached.jsonl"));
+    expect(facts.total).toBe(1);
+    expect(facts.passed).toBe(1);
+  });
+
+  it("represents build failures as one bounded failed identity per package", () => {
+    const facts = parseGoTestJson(fixture("go-test-json", "build-failure.jsonl"));
+    expect(facts.total).toBe(2);
+    expect(facts.failed).toBe(1);
+    expect(facts.failed_tests[0].name).toContain("broken");
+    expect(facts.failed_tests[0].message).toContain("undefined: x");
+  });
+
+  it("captures bounded package panic output", () => {
+    const facts = parseGoTestJson(fixture("go-test-json", "panic.jsonl"));
+    expect(facts.failed).toBeGreaterThanOrEqual(2);
+    expect(facts.failed_tests.length).toBe(2);
+  });
+
+  it("fails on malformed event lines", () => {
+    expect(() => parseGoTestJson(fixture("go-test-json", "malformed.jsonl"))).toThrow(/go test -json/);
+  });
+});
+
+describe("clover adapter", () => {
+  it("maps statements/methods/conditionals to line/function/branch", () => {
+    const facts = parseCloverXml(fixture("clover", "ordinary.xml"));
+    expect(facts.line_percent).toBeCloseTo((16 + 15) / 50 * 100, 2);
+    expect(facts.files[0].line_percent).toBe(80);
+    expect(facts.files[1].function_percent).not.toBeNull();
+  });
+
+  it("reports zero-statement files as 100 percent (nothing to cover)", () => {
+    const facts = parseCloverXml(fixture("clover", "zero-denominator.xml"));
+    expect(facts.files[0].line_percent).toBe(100);
+    expect(facts.files[0].function_percent).toBeNull();
+    expect(facts.branch_percent).toBeNull();
+  });
+});
+
+describe("go-coverprofile adapter", () => {
+  it("aggregates block coverage per file with null function/branch", () => {
+    const facts = parseGoCoverprofile(fixture("go-coverprofile", "ordinary.cov"));
+    expect(facts.line_percent).toBeCloseTo(3 / 4 * 100, 1);
+    expect(facts.files).toHaveLength(2);
+    expect(facts.files[0].function_percent).toBeNull();
+    expect(facts.files[0].branch_percent).toBeNull();
+  });
+
+  it("treats an empty profile as unknown coverage", () => {
+    const facts = parseGoCoverprofile(fixture("go-coverprofile", "empty.cov"));
+    expect(facts.files).toHaveLength(0);
+    expect(facts.line_percent).toBeNull();
+  });
+
+  it("bounds long coverage paths to 1024 characters", async () => {
+    const { boundPath } = await import("../../src/adapters/types");
+    const longPath = "src/" + "d".repeat(1100) + "/file.ts";
+    expect(boundPath(longPath).length).toBe(1024);
+    expect(boundPath("src/short.ts")).toBe("src/short.ts");
+  });
+});
+
+describe("lcov coverage parser (registry)", () => {
+  it("reports zero-coverable-line files as 100 (nothing to cover)", async () => {
+    const { coverageParserFor } = await import("../../src/adapters");
+    const facts = await coverageParserFor("lcov")(fixture("lcov", "zero-denominator.info"));
+    expect(facts.files[0].line_percent).toBe(100);
+  });
+
+  it("preserves monorepo relative and absolute paths", async () => {
+    const { coverageParserFor } = await import("../../src/adapters");
+    const facts = await coverageParserFor("lcov")(fixture("lcov", "monorepo.info"));
+    expect(facts.files.map((f) => f.path)).toEqual([
+      "packages/core/src/sum.ts",
+      "/abs/path/src/other.ts",
+    ]);
+    expect(facts.line_percent).toBeCloseTo(2 / 3 * 100, 1);
+  });
+});
+
+describe("go-test-json dedup and bounds", () => {
+  it("counts a Go 1.24 build failure once even with the trailing package fail", () => {
+    const events = [
+      { Action: "output", Package: "example.com/m/broken", Output: "# pkg\n" },
+      { Action: "build-output", Package: "example.com/m/broken", Output: "undefined: x\n" },
+      { Action: "build-fail", Package: "example.com/m/broken" },
+      { Action: "fail", Package: "example.com/m/broken", Elapsed: 0 },
+    ].map((e) => JSON.stringify(e)).join("\n") + "\n";
+    const facts = parseGoTestJson(events);
+    expect(facts.total).toBe(1);
+    expect(facts.failed).toBe(1);
+    expect(facts.failed_tests).toHaveLength(1);
+  });
+
+  it("bounds failed-test names and messages", () => {
+    const facts = parseVitestJson(
+      JSON.stringify({
+        numTotalTests: 1,
+        numFailedTests: 1,
+        testResults: [{
+          name: "a.test.ts",
+          assertionResults: [{
+            fullName: "x".repeat(600),
+            status: "failed",
+            failureMessages: ["m".repeat(3000)],
+          }],
+        }],
+      }),
+    );
+    expect(facts.failed_tests[0].name.length).toBe(512);
+    expect(facts.failed_tests[0].message.length).toBe(2048);
+  });
+});
+
+describe("vitest-json todo handling", () => {
+  it("folds todo tests into skipped", () => {
+    const facts = parseVitestJson(JSON.stringify({
+      numTotalTests: 3,
+      numPassedTests: 1,
+      numFailedTests: 0,
+      numPendingTests: 1,
+      numTodoTests: 1,
+      testResults: [],
+    }));
+    expect(facts.skipped).toBe(2);
+  });
+});

@@ -1,0 +1,6 @@
+{"Action": "start"}
+{"Action": "output", "Package": "example.com/m/broken", "Output": "# example.com/m/broken\n"}
+{"Action": "build-output", "Package": "example.com/m/broken", "Output": "./main.go:7:5: undefined: x\n"}
+{"Action": "build-fail", "Package": "example.com/m/broken"}
+{"Action": "pass", "Package": "example.com/m/ok", "Test": "TestOk", "Elapsed": 0.01}
+{"Action": "pass", "Package": "example.com/m/ok", "Elapsed": 0.01}

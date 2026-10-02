@@ -1,0 +1,5 @@
+{"Action": "run", "Package": "example.com/m/panic", "Test": "TestPanics"}
+{"Action": "output", "Package": "example.com/m/panic", "Test": "TestPanics", "Output": "panic: runtime error\n"}
+{"Action": "fail", "Package": "example.com/m/panic", "Test": "TestPanics"}
+{"Action": "output", "Package": "example.com/m/panic", "Output": "FAIL\texample.com/m/panic\t0.01s\n"}
+{"Action": "fail", "Package": "example.com/m/panic", "Elapsed": 0.01}
