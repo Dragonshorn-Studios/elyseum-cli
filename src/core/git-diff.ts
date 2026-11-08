@@ -1,6 +1,6 @@
 import git from "isomorphic-git";
 import fs from "fs/promises";
-import { merge } from "diff";
+import { structuredPatch } from "diff";
 import { MissingGitError } from "./errors";
 import { LcovRecord, percent } from "./lcov";
 
@@ -301,7 +301,11 @@ export async function getChangedFiles(
       if (type === "modify" && BASE) {
         const baseContent = await BASE.content();
         const baseContentStr = baseContent ? new TextDecoder().decode(baseContent) : "";
-        diff = merge(headContentStr, baseContentStr, baseContentStr);
+        // A plain two-way patch. (The previous three-way merge() call routed
+        // through jsdiff's applyPatch, which throws on some content — e.g.
+        // maomao#190's pipeline.test.ts: "Hunk at line 1460 contained
+        // invalid line". structuredPatch computes hunks directly.)
+        diff = structuredPatch("", "", baseContentStr, headContentStr);
       } else {
         diff = {
           hunks: [
