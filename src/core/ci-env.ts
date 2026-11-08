@@ -9,7 +9,8 @@ import { MissingGitError } from "./errors";
  * - GitHub Actions: provider "github", run_id from GITHUB_RUN_ID, job_id
  *   from GITHUB_JOB (the job's key; matrix legs share it — pass
  *   --emit-envelope.run-job-id to disambiguate), attempt from
- *   GITHUB_RUN_ATTEMPT, url from the canonical run URL.
+ *   GITHUB_RUN_ATTEMPT, url from the canonical run URL, started_at from
+ *   GITHUB_RUN_STARTED_AT.
  * - Any other CI / local runs: provider "generic", run_id = the git HEAD
  *   SHA, job_id null, attempt 1. The idempotency key is then the commit —
  *   a rerun of the same commit overwrites the same logical run.
@@ -20,6 +21,7 @@ export interface RunIdentity {
   job_id: string | null;
   attempt: number;
   url: string | null;
+  started_at: string | null;
 }
 
 export function resolveRunIdentity(env: NodeJS.ProcessEnv, headSha: string): RunIdentity {
@@ -33,6 +35,7 @@ export function resolveRunIdentity(env: NodeJS.ProcessEnv, headSha: string): Run
       url: env.GITHUB_REPOSITORY
         ? `https://github.com/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}`
         : null,
+      started_at: env.GITHUB_RUN_STARTED_AT ?? null,
     };
   }
 
@@ -42,6 +45,7 @@ export function resolveRunIdentity(env: NodeJS.ProcessEnv, headSha: string): Run
     job_id: null,
     attempt: 1,
     url: null,
+    started_at: null,
   };
 }
 

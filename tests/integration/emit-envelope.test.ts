@@ -159,6 +159,23 @@ end_of_record
     expect(envelope.quality_gate.conclusion).toBe("failed");
   });
 
+  it("stamps run started_at from the runner env and finished_at at emit", () => {
+    // Without a finish time the host keeps the run "in progress" forever.
+    const result = run(["emit-envelope"], repo, {
+      GITHUB_RUN_ID: "42463307400",
+      GITHUB_RUN_ATTEMPT: "1",
+      GITHUB_REPOSITORY: "Dragonshorn-Studios/maomao",
+      GITHUB_RUN_STARTED_AT: "2026-11-08T08:41:30Z",
+    });
+    expect(result.code, result.out).toBe(0);
+
+    const envelope = parseEnvelope(result.out);
+    expect(validateSchema(envelope)).toBe(true);
+    expect(envelope.run.provider).toBe("github");
+    expect(envelope.run.started_at).toBe("2026-11-08T08:41:30Z");
+    expect(new Date(envelope.run.finished_at).toString()).not.toBe("Invalid Date");
+  });
+
   it("writes the envelope to a file with --emit-envelope.out", async () => {
     const out = path.join(repo, "envelope.json");
     const result = run(["emit-envelope", "--emit-envelope.out", "envelope.json"]);
