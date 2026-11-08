@@ -49,6 +49,17 @@ export function resolveRunIdentity(env: NodeJS.ProcessEnv, headSha: string): Run
   };
 }
 
+/**
+ * The branch a run's commit belongs to. CI checkouts are usually detached
+ * (git resolves to "HEAD"), so the runner's refs win when present:
+ * GITHUB_HEAD_REF on pull_request events (the PR's head branch), else
+ * GITHUB_REF_NAME (the pushed branch); the git branch is the local-run
+ * fallback.
+ */
+export function resolveCommitBranch(env: NodeJS.ProcessEnv, gitBranch: string): string {
+  return env.GITHUB_HEAD_REF || env.GITHUB_REF_NAME || gitBranch;
+}
+
 /** Commit facts from the git checkout. Requires a git repository. */
 export async function resolveCommitFacts(
   dir: string,

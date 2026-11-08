@@ -13,7 +13,7 @@ import {
 } from "../core/errors";
 import packageJson from "../../package.json";
 import { calculateTotalCoverage, readLcovReport } from "../core/lcov";
-import { resolveCommitFacts, resolveRunIdentity } from "../core/ci-env";
+import { resolveCommitBranch, resolveCommitFacts, resolveRunIdentity } from "../core/ci-env";
 import {
   BOUNDS,
   boundPath,
@@ -247,7 +247,9 @@ export class EmitEnvelopeCommand implements Command {
         },
         commit: {
           sha: commitFacts.sha,
-          branch: commitFacts.branch,
+          // CI checkouts are detached (git reports "HEAD"); prefer the
+          // runner's refs so runs land on their real branch.
+          branch: resolveCommitBranch(process.env, commitFacts.branch),
           committed_at: commitFacts.committed_at,
         },
         ...(testsFacts
