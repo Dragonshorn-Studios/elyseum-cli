@@ -77,12 +77,46 @@ export interface EnvelopeIssue {
 /** Validates an envelope against the pinned v1 schema. Pure. */
 export function validateEnvelope(envelope: EnvelopeV1): EnvelopeIssue[] {
   const valid = validate(envelope);
-  if (valid) {
-    return [];
-  }
+  const issues: EnvelopeIssue[] = valid
+    ? []
+    : (validate.errors ?? []).map((error) => ({
+        pointer: `${error.instancePath}/${error.params?.missingProperty ?? ""}`.replace(/\/+/g, "/"),
+        message: error.message ?? "schema violation",
+      }));
 
-  return (validate.errors ?? []).map((error) => ({
-    pointer: `${error.instancePath}/${error.params?.missingProperty ?? ""}`.replace(/\/+/g, "/"),
-    message: error.message ?? "schema violation",
-  }));
+  // The contract caps percentages at 4 decimal places, but JSON Schema
+  // cannot express that constraint, so the host enforces it beyond the
+  // schema and rejects with envelope.schema-violation. Check it here too:
+  // an emit that would be rejected downstream is a CLI bug (exit 5), not
+  // a silent upload failure.
+  issues.push(...percentPrecisionIssues(envelope));
+  return issues;
+}
+
+function percentPrecisionIssues(node: unknown, pointer = ""): EnvelopeIssue[] {
+  if (Array.isArray(node)) {
+    return node.flatMap((item, i) => percentPrecisionIssues(item, `${pointer}/${i}`));
+  }
+  if (node && typeof node === "object") {
+    return Object.entries(node).flatMap(([key, value]) => {
+      const childPointer = `${pointer}/${key}`;
+      if (
+        /_percent$/.test(key) &&
+        typeof value === "number" &&
+        decimalPlaces(value) > 4
+      ) {
+        return [
+          { pointer: childPointer, message: "Percentages carry at most 4 decimal places." },
+        ];
+      }
+      return percentPrecisionIssues(value, childPointer);
+    });
+  }
+  return [];
+}
+
+function decimalPlaces(value: number): number {
+  const text = String(value);
+  const dot = text.indexOf(".");
+  return dot === -1 ? 0 : text.length - dot - 1;
 }
