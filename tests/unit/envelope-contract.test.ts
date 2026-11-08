@@ -57,6 +57,29 @@ describe("pinned envelope contract", () => {
     expect(validateEnvelope(envelope)).toEqual([]);
   });
 
+  it("rejects percentages beyond 4 decimal places", () => {
+    const envelope = validEnvelope();
+    envelope.coverage = {
+      line_percent: 84.7,
+      files: [{ path: "src/a.ts", line_percent: 95.29411764705881 }],
+    };
+    expect(validateEnvelope(envelope)).toEqual([
+      {
+        pointer: "/coverage/files/0/line_percent",
+        message: "Percentages carry at most 4 decimal places.",
+      },
+    ]);
+  });
+
+  it("accepts percentages at exactly 4 decimal places", () => {
+    const envelope = validEnvelope();
+    envelope.coverage = {
+      line_percent: 84.7123,
+      files: [{ path: "src/a.ts", line_percent: 95.2941 }],
+    };
+    expect(validateEnvelope(envelope)).toEqual([]);
+  });
+
   it("accepts every valid canonical fixture", () => {
     const fixtures = readdirSync(fixturesDir).filter((f) => f.startsWith("valid-"));
     expect(fixtures.length).toBeGreaterThanOrEqual(4);

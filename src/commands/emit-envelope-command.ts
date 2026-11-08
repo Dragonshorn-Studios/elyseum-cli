@@ -275,7 +275,25 @@ export class EmitEnvelopeCommand implements Command {
                 coverageFacts.diff_percent !== undefined
                   ? { diff_percent: this.r4(coverageFacts.diff_percent) }
                   : {}),
-                ...(coverageFacts.files.length > 0 ? { files: coverageFacts.files } : {}),
+                ...(coverageFacts.files.length > 0
+                  ? {
+                      files: coverageFacts.files.map((file) => ({
+                        path: file.path,
+                        line_percent:
+                          file.line_percent === null || file.line_percent === undefined
+                            ? null
+                            : this.r4(file.line_percent),
+                        function_percent:
+                          file.function_percent === null || file.function_percent === undefined
+                            ? null
+                            : this.r4(file.function_percent),
+                        branch_percent:
+                          file.branch_percent === null || file.branch_percent === undefined
+                            ? null
+                            : this.r4(file.branch_percent),
+                      })),
+                    }
+                  : {}),
               },
             }
           : {}),

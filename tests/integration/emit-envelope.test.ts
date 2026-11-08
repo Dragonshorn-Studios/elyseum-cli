@@ -88,6 +88,43 @@ describe("emit-envelope", () => {
     expect(envelope.run.attempt).toBe(1);
   });
 
+  it("rounds per-file percentages to 4 decimal places (host contract)", () => {
+    // 2 of 3 covered lines = 66.666…%; the host rejects envelopes whose
+    // percentages carry more than 4 decimal places with a 422.
+    const twoOfThree = `TN:
+SF:src/app.ts
+DA:1,1
+DA:2,1
+DA:3,0
+LF:3
+LH:2
+end_of_record
+`;
+    writeFileSync(path.join(repo, "coverage", "lcov.info"), twoOfThree);
+    try {
+      const result = run(
+        [
+          "emit-envelope",
+          "--emit-envelope.coverage-format", "lcov",
+          "--emit-envelope.coverage-input", "coverage/lcov.info",
+        ],
+        repo,
+        {
+          GITHUB_RUN_ID: "",
+          GITHUB_RUN_ATTEMPT: "",
+          GITHUB_REPOSITORY: "",
+        },
+      );
+      expect(result.code, result.out).toBe(0);
+
+      const envelope = parseEnvelope(result.out);
+      const file = envelope.coverage.files.find((f: any) => f.path === "src/app.ts");
+      expect(file.line_percent).toBe(66.6667);
+    } finally {
+      writeFileSync(path.join(repo, "coverage", "lcov.info"), LCOV);
+    }
+  });
+
   it("includes the tests section when test facts are provided", () => {
     const result = run([
       "emit-envelope",
