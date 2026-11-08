@@ -166,6 +166,9 @@ end_of_record
       GITHUB_RUN_ATTEMPT: "1",
       GITHUB_REPOSITORY: "Dragonshorn-Studios/maomao",
       GITHUB_RUN_STARTED_AT: "2026-11-08T08:41:30Z",
+      // PR events: HEAD_REF is the PR's branch; REF_NAME is "N/merge".
+      GITHUB_HEAD_REF: "ci/elyseum-ingest",
+      GITHUB_REF_NAME: "195/merge",
     });
     expect(result.code, result.out).toBe(0);
 
@@ -174,6 +177,8 @@ end_of_record
     expect(envelope.run.provider).toBe("github");
     expect(envelope.run.started_at).toBe("2026-11-08T08:41:30Z");
     expect(new Date(envelope.run.finished_at).toString()).not.toBe("Invalid Date");
+    // Detached CI checkouts report git branch "HEAD"; the runner refs win.
+    expect(envelope.commit.branch).toBe("ci/elyseum-ingest");
   });
 
   it("writes the envelope to a file with --emit-envelope.out", async () => {
