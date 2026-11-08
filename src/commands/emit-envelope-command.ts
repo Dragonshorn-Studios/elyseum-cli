@@ -238,6 +238,12 @@ export class EmitEnvelopeCommand implements Command {
           job_id: runJobId,
           attempt: runAttempt,
           url: identity.url,
+          started_at: identity.started_at,
+          // This emit is the run's final report: the envelope is produced
+          // at the end of the job and redelivery (same idempotency key)
+          // overwrites it. Without a finish time the host keeps the run
+          // "in progress" forever.
+          finished_at: new Date().toISOString(),
         },
         commit: {
           sha: commitFacts.sha,
