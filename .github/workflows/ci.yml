@@ -11,8 +11,8 @@ permissions:
 
 jobs:
   ci:
-    # Self-hosted (docker-labeled): private repository, hosted runners bill per minute.
-    runs-on: [self-hosted, docker]
+    # Public repository: hosted runners are free, self-hosted no longer needed.
+    runs-on: ubuntu-latest
 
     strategy:
       matrix:
