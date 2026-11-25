@@ -133,6 +133,15 @@ describe("clover adapter", () => {
     expect(facts.files[0].function_percent).toBeNull();
     expect(facts.branch_percent).toBeNull();
   });
+
+  it("flattens PHPUnit's package-nested <file> elements", () => {
+    const facts = parseCloverXml(fixture("clover", "nested-packages.xml"));
+    expect(facts.files).toHaveLength(2);
+    expect(facts.files[0].path).toBe("/var/www/app/Models/Project.php");
+    expect(facts.files[1].path).toBe("/var/www/app/Http/Controllers/RunController.php");
+    expect(facts.line_percent).toBeCloseTo((16 + 15) / 50 * 100, 2);
+    expect(facts.function_percent).toBeCloseTo((4 + 4) / 13 * 100, 2);
+  });
 });
 
 describe("go-coverprofile adapter", () => {

@@ -266,4 +266,106 @@ end_of_record
 
     await rm(repo, { recursive: true, force: true });
   });
+
+  async function writeCloverReport(dir: string): Promise<void> {
+    // PHPUnit shape: files nested under <package>, absolute checkout paths.
+    const clover = `<?xml version="1.0"?>
+<coverage generated="1">
+  <project timestamp="1">
+    <package name="App">
+      <file name="${dir}/src/app.php">
+        <line num="1" type="method" name="boot" crap="1" count="1"/>
+        <line num="2" type="stmt" count="1"/>
+        <line num="3" type="stmt" count="0"/>
+        <line num="4" type="stmt" count="1"/>
+        <metrics statements="3" coveredstatements="2" methods="1" coveredmethods="1" conditionals="0" coveredconditionals="0"/>
+      </file>
+    </package>
+  </project>
+</coverage>
+`;
+    await mkdir(path.join(dir, "coverage"), { recursive: true });
+    await writeFile(path.join(dir, "coverage", "clover.xml"), clover);
+  }
+
+  it("computes diff coverage for a PHP file from a Clover report via config file", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "elyseum-cli-clover-"));
+    await writeCloverReport(dir);
+    await writeFile(
+      path.join(dir, ".elyseum.yml"),
+      "config:\n  coverage:\n    format: clover\n    input: coverage/clover.xml\n",
+    );
+
+    const result = run(
+      [
+        "diff-coverage",
+        "--diff-coverage.changed-files", "src/app.php",
+        "--reporter.coverage", "markdown-table",
+      ],
+      dir,
+    );
+
+    // Whole-file mode over the Clover input: the three statement lines
+    // count as changed, two of them covered — and the .php file is not
+    // filtered out of the changed-file list.
+    expect(result.code, result.out).toBe(0);
+    expect(result.out).toContain("| Lines     | 3 | 2 | 66.67% |");
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it("aggregates total coverage from a Clover report via CLI flags", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "elyseum-cli-clover-"));
+    await writeCloverReport(dir);
+
+    const result = run(
+      [
+        "coverage",
+        "--coverage.format", "clover",
+        "--coverage.input", "coverage/clover.xml",
+        "--reporter.coverage", "markdown-table",
+      ],
+      dir,
+    );
+
+    expect(result.code, result.out).toBe(0);
+    expect(result.out).toContain("| Lines     | 3 | 2 | 66.67% |");
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it("exits 4 with a format-aware message when the Clover report is missing", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "elyseum-cli-clover-"));
+
+    const result = run(
+      [
+        "diff-coverage",
+        "--diff-coverage.changed-files", "src/app.php",
+        "--coverage.format", "clover",
+        "--coverage.input", "nope/clover.xml",
+      ],
+      dir,
+    );
+
+    expect(result.code).toBe(4);
+    expect(result.err).toContain("Coverage report (clover) not found");
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it("exits 2 for an unknown coverage format", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "elyseum-cli-fmt-"));
+    await mkdir(path.join(dir, "coverage"), { recursive: true });
+    await writeFile(path.join(dir, "coverage", "lcov.info"), LCOV);
+
+    const result = run(
+      [
+        "coverage",
+        "--coverage.format", "cobertura",
+        "--coverage.input", "coverage/lcov.info",
+      ],
+      dir,
+    );
+
+    expect(result.code).toBe(2);
+    expect(result.err).toContain("Unknown coverage format");
+    await rm(dir, { recursive: true, force: true });
+  });
 });

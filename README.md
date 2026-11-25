@@ -34,7 +34,15 @@ Computes coverage for changed lines between two refs (or an explicit changed-fil
 | `--diff-coverage.head` | `HEAD` (or `$GITHUB_SHA`) | Head branch/SHA |
 | `--diff-coverage.dynamic` | | Set to `gh` to resolve the base SHA from the GitHub pull request |
 | `--diff-coverage.changed-files` | | Comma-separated file list; skips git entirely |
+| `--diff-coverage.format` | `lcov` | Coverage report format: `lcov` or `clover` |
+| `--diff-coverage.input` | | Coverage report location (any format; overrides lcov-path) |
 | `--diff-coverage.lcov-path` | `coverage/lcov.info` | LCOV report location |
+
+Changed files are matched against the report for `ts/tsx/js/jsx/mjs/vue/php`
+paths. Clover reports (PHPUnit `--coverage-clover`) are read directly:
+statement lines carry line coverage, method lines carry function coverage,
+and absolute checkout paths are normalized to repo-relative ones — including
+PHPUnit's package-nested `<file>` shape.
 
 ### `coverage`
 
@@ -42,6 +50,8 @@ Aggregated coverage over the whole report.
 
 | Option | Default | Description |
 | --- | --- | --- |
+| `--coverage.format` | `lcov` | Coverage report format: `lcov` or `clover` |
+| `--coverage.input` | | Coverage report location (any format; overrides lcov-path) |
 | `--coverage.lcov-path` | `coverage/lcov.info` | LCOV report location |
 
 ### Reporters
@@ -87,7 +97,7 @@ the listed file as changed — gates are therefore stricter in that mode.
 | 1 | A configured quality gate failed |
 | 2 | Invalid configuration |
 | 3 | No git repository found (and no explicit changed-file list) |
-| 4 | LCOV report not found |
+| 4 | Coverage report not found |
 | 5 | Any other calculation or runtime error |
 
 ## Input adapters (`emit-envelope`)

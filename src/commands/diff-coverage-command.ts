@@ -10,7 +10,11 @@ import { Octokit } from "octokit";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { CliError, MissingLcovError } from "../core/errors";
-import { LcovRecord, readLcovReport } from "../core/lcov";
+import { LcovRecord } from "../core/lcov";
+import {
+  assertCoverageInputFormat,
+  readCoverageReport,
+} from "../core/coverage-input";
 import {
   assertGitRepository,
   calculateDiffCoverage,
@@ -27,6 +31,7 @@ const COVERAGE_INCLUDES = [
   "**/*.jsx",
   "**/*.mjs",
   "**/*.vue",
+  "**/*.php",
 ];
 
 export class DiffCoverageCommand implements Command {
@@ -59,10 +64,26 @@ export class DiffCoverageCommand implements Command {
       default: "",
     },
     "lcov-path": {
+      // Null defaults throughout: an argparse default is indistinguishable
+      // from a user-supplied value in the merged config, so a real default
+      // here would shadow the shared coverage.* keys in the resolution
+      // chain. Resolution applies the documented fallbacks instead.
       help: "Path to the LCOV report",
       type: "str",
       required: false,
-      default: "coverage/lcov.info",
+      default: null,
+    },
+    input: {
+      help: "Path to the coverage report (any supported format; overrides lcov-path)",
+      type: "str",
+      required: false,
+      default: null,
+    },
+    format: {
+      help: "Coverage report format: lcov | clover",
+      type: "str",
+      required: false,
+      default: null,
     },
   };
 
@@ -75,8 +96,16 @@ export class DiffCoverageCommand implements Command {
       Logger.debug("Running diff-coverage command");
 
       const changedFiles = Config.get(this.name, "changed-files", "") as string;
-      const lcovPath = Config.getInstance().getFirst(
-        ["coverage.lcov-path", "diff-coverage.lcov-path"],
+      // Command-specific keys win over the shared coverage.* keys; unset
+      // keys are null and fall through the chain.
+      const format = assertCoverageInputFormat(
+        Config.getInstance().getFirst(
+          ["diff-coverage.format", "coverage.format"],
+          "lcov",
+        ) as string,
+      );
+      const inputPath = Config.getInstance().getFirst(
+        ["diff-coverage.input", "coverage.input", "diff-coverage.lcov-path", "coverage.lcov-path"],
         "coverage/lcov.info",
       ) as string;
 
@@ -114,7 +143,7 @@ export class DiffCoverageCommand implements Command {
 
       let coverage: LcovRecord[];
       try {
-        coverage = await readLcovReport(lcovPath);
+        coverage = await readCoverageReport(inputPath, format);
       } catch (error) {
         if (error instanceof MissingLcovError) {
           Logger.error(error.message);
