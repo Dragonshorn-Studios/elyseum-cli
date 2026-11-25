@@ -34,9 +34,16 @@ export class MissingLcovError extends CliError {
   readonly exitCode = EXIT_CODES.MISSING_LCOV;
   readonly actionable: string;
 
-  constructor(path: string) {
-    super(`LCOV report not found at "${path}".`);
-    this.actionable = `Generate the LCOV report first, or point --coverage.lcov-path (or --diff-coverage.lcov-path) at its location (default: coverage/lcov.info).`;
+  constructor(path: string, format: string = "lcov") {
+    super(
+      format === "lcov"
+        ? `LCOV report not found at "${path}".`
+        : `Coverage report (${format}) not found at "${path}".`,
+    );
+    this.actionable =
+      format === "lcov"
+        ? `Generate the LCOV report first, or point --coverage.lcov-path (or --diff-coverage.lcov-path) at its location (default: coverage/lcov.info).`
+        : `Generate the ${format} report first, or point --coverage.input (or --diff-coverage.input) at its location.`;
   }
 }
 

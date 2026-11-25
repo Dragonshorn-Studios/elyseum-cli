@@ -1,5 +1,9 @@
 import { CliError } from "../core/errors";
-import { LcovRecord, calculateTotalCoverage, readLcovReport } from "../core/lcov";
+import { LcovRecord, calculateTotalCoverage } from "../core/lcov";
+import {
+  assertCoverageInputFormat,
+  readCoverageReport,
+} from "../core/coverage-input";
 import { Command, CommandMap } from "./command";
 import Config, { CustomConfig } from "../config";
 import { getCoverageReportersFromArgs } from "../utils/reporters/reporters";
@@ -10,10 +14,26 @@ export class CoverageCommand implements Command {
   name: string = "coverage";
   config?: CustomConfig = {
     "lcov-path": {
+      // Null defaults throughout: an argparse default is indistinguishable
+      // from a user-supplied value in the merged config, so a real default
+      // here would shadow configured keys in the resolution chain.
+      // Resolution applies the documented fallback instead.
       help: "Path to the LCOV report",
       type: "str",
       required: false,
-      default: "coverage/lcov.info",
+      default: null,
+    },
+    input: {
+      help: "Path to the coverage report (any supported format; overrides lcov-path)",
+      type: "str",
+      required: false,
+      default: null,
+    },
+    format: {
+      help: "Coverage report format: lcov | clover",
+      type: "str",
+      required: false,
+      default: null,
     },
   };
 
@@ -22,14 +42,19 @@ export class CoverageCommand implements Command {
   }
 
   public async run(args: any): Promise<number> {
-    const lcovPath = Config.getInstance().get(
-      "coverage.lcov-path",
+    // The explicit input path wins over the historical lcov-path key; an
+    // empty string means "not given" and falls through.
+    const inputPath = Config.getInstance().getFirst(
+      ["coverage.input", "coverage.lcov-path"],
       "coverage/lcov.info",
     ) as string;
 
     let coverage: LcovRecord[];
     try {
-      coverage = await readLcovReport(lcovPath);
+      const format = assertCoverageInputFormat(
+        Config.getInstance().getFirst(["coverage.format"], "lcov") as string,
+      );
+      coverage = await readCoverageReport(inputPath, format);
     } catch (error: any) {
       if (error instanceof CliError) {
         Logger.error(error.message);
@@ -48,4 +73,3 @@ export class CoverageCommand implements Command {
     return 0;
   }
 }
-
